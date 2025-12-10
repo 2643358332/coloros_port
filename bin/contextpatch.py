@@ -39,7 +39,37 @@ fix_permission = {
     "/odm/bin/hw/vendor-oplus-hardware-touch-V2-service":"u:object_r:hal_oplus_touch_aidl_default_exec:s0",
     r"/odm/bin/hw/vendor\.oplus\.hardware\.displaypanelfeature-service":"u:object_r:oplus_hal_displaypanelfeature_exec:s0",
     r"/odm/bin/hw/vendor\.oplus\.hardware\.engcamera@1\.0-service":"u:object_r:engcamera_hidl_exec:s0",
-    r"/odm/bin/init\.oplus\.storage\.io_metrics\.sh":"u:object_r:oplus_storage_io_metrics_exec:s0"
+    r"/odm/bin/init\.oplus\.storage\.io_metrics\.sh":"u:object_r:oplus_storage_io_metrics_exec:s0",
+   "/system_ext/xbin/xeu_toolbox":"u:object_r:xeu_toolbox_exec:s0",
+   "*/etc/init/hw/*.rc":"u:object_r:vendor_configs_file:s0",
+    r"/odm/lib/libmsnativefilter\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/libmsnativefilter\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib/libextendfile\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/libextendfile\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/android\.hardware\.graphics\.common-V5-ndk\.so":"u:object_r:same_process_hal_file:s0", 
+    r"/vendor/lib64/android\.hardware\.common-V2-ndk\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/android\.hardware\.graphics\.common@1\.0\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/android\.hardware\.graphics\.allocator-V2-ndk\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/vendor\.qti\.hardware\.camera\.offlinecamera-V2-ndk\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/android\.hardware\.camera\.device-V2-ndk\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/libAlgoInterface\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/libAlgoProcess\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/android\.hardware\.common\.fmq-V1-ndk\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/android\.hardware\.camera\.metadata-V2-ndk\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/vendor\.oplus\.hardware\.osense\.client-V1-ndk\.so":"u:object_r:same_process_hal_file:s0",
+    r"/vendor/lib64/libc\+\+\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib/libNamaWrapper\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib/vendor\.oplus\.hardware\.sendextcamcmd-V1-service-impl\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib/libOplusSecurity\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/libNamaWrapper\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/vendor\.oplus\.hardware\.sendextcamcmd-V1-service-impl\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/libOplusSecurity\.so":"u:object_r:same_process_hal_file:s0",
+     r"/odm/lib/libFilterWrapper\.so":"u:object_r:same_process_hal_file:s0",
+    r"/odm/lib64/libFilterWrapper\.so":"u:object_r:same_process_hal_file:s0",
+    "/odm/lib64/libaiboost*.so":"u:object_r:same_process_hal_file:s0",
+    "/odm/lib64/aiframe/*.so":"u:object_r:same_process_hal_file:s0",
+    "/odm/lib64/aiframe/cdsp/*signed/*.so":"u:object_r:same_process_hal_file:s0",
+    "/system/system/bin/pif-updater":"u:object_r:pif_updater_exec:s0",
     }
 
 
@@ -66,6 +96,7 @@ def scan_dir(folder) -> Generator[Any, Any, Any]:  # 读取解包的目录，返
         f"/{part_name}/lost+found",
     ]
     for root, dirs, files in os.walk(folder, topdown=True):
+        dirs[:] = [d for d in dirs if d not in (".git", ".repo", ".svn", "__pycache__")]
         for dir_ in dirs:
             yield os.path.join(root, dir_).replace(folder, "/" + part_name).replace(
                 "\\", "/"
@@ -105,6 +136,12 @@ def context_patch(fs_file, dir_path) -> tuple:  # 接收两个字典对比
         if " " in i:
             i = i.replace(" ", "*")
         i = str_to_selinux(i)
+
+        # 🚫 跳过含中文或非 ASCII 的路径（防止 mkfs.erofs 报 Non-ASCII 错）
+        if any(ord(ch) > 127 for ch in i):
+        # print(f"[Skip] {i} contains non-ASCII characters, skipped.")
+           continue
+
         if fs_file.get(i):
             # 如果已经存在, 直接使用原来的
             new_fs[i] = fs_file[i]

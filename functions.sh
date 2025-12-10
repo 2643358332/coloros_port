@@ -151,6 +151,9 @@ patch_smali() {
                 # Align moddified APKs, to avoid error "Targeting R+ (version 30 and above) requires the resources.arsc of installed APKs to be stored uncompressed and aligned on a 4-byte boundary" 
                 zipalign -p -f -v 4 tmp/$foldername/$targetfilename ${targetfilefullpath} > /dev/null 2>&1 || error "zipalign错误，请检查原因。" "zipalign error,please check for any issues"
                 yellow "apk zipalign处理完成" "APK ZipAlign process completed."
+                yellow "开始apksigner签名" "ApkSinger signing.."
+                apksigner sign -v --key otatools/key/testkey.pk8 --cert otatools/key/testkey.x509.pem ${targetfilefullpath}
+                apksigner verify -v ${targetfilefullpath}
                 yellow "复制APK到目标位置：${targetfilefullpath}" "Copying APK to target ${targetfilefullpath}"
             else
                 yellow "复制修改文件到目标位置：${targetfilefullpath}" "Copying file to target ${targetfilefullpath}"
@@ -263,23 +266,23 @@ patch_kernel_to_bootimg() {
     cd ramdisk
     EXTRACT_UNSAFE_SYMLINKS=1 cpio -d -F ../ramdisk.cpio -i
     disable_avb_verify ${work_dir}/tmp/boot/
-    #添加erofs文件系统fstab
-    if [[ ${pack_type} == "EROFS" ]];then
-        blue "检查 ramdisk fstab.qcom是否需要添加erofs挂载点" "Check if ramdisk fstab.qcom needs to add erofs mount point."
-        if ! grep -q "erofs" ${work_dir}/tmp/boot/ramdisk/fstab.qcom ; then
-                for pname in ${super_list}; do
-                    sed -i "/\/${pname}[[:space:]]\+ext4/{p;s/ext4/erofs/;s/ro,barrier=1,discard/ro/;}" ${work_dir}/tmp/boot/ramdisk/fstab.qcom
-                    added_line=$(sed -n "/\/${pname}[[:space:]]\+erofs/p" ${work_dir}/tmp/boot/ramdisk/fstab.qcom)
+    # #添加erofs文件系统fstab
+    # if [[ ${pack_type} == "EROFS" ]];then
+    #     blue "检查 ramdisk fstab.qcom是否需要添加erofs挂载点" "Check if ramdisk fstab.qcom needs to add erofs mount point."
+    #     if ! grep -q "erofs" ${work_dir}/tmp/boot/ramdisk/fstab.qcom ; then
+    #             for pname in ${super_list}; do
+    #                 sed -i "/\/${pname}[[:space:]]\+ext4/{p;s/ext4/erofs/;s/ro,barrier=1,discard/ro/;}" ${work_dir}/tmp/boot/ramdisk/fstab.qcom
+    #                 added_line=$(sed -n "/\/${pname}[[:space:]]\+erofs/p" ${work_dir}/tmp/boot/ramdisk/fstab.qcom)
     
-                    if [ -n "$added_line" ]; then
-                        yellow "添加${pname}成功" "Adding erofs mount point [$pname]"
-                    else
-                        error "添加失败，请检查" "Adding faild, please check."
-                        exit 1 
-                    fi
-                done
-          fi
-      fi
+    #                 if [ -n "$added_line" ]; then
+    #                     yellow "添加${pname}成功" "Adding erofs mount point [$pname]"
+    #                 else
+    #                     error "添加失败，请检查" "Adding faild, please check."
+    #                     exit 1 
+    #                 fi
+    #             done
+    #       fi
+    #   fi
     fi
     cp -f $kernel_file ${work_dir}/tmp/boot/kernel
     cp -f $dtb_file ${work_dir}/tmp/boot/dtb
@@ -304,6 +307,178 @@ patch_kernel_to_bootimg() {
     cd $work_dir
 }
 
+patch_kernel() {
+    kernel_file=$1
+    dtb_file=$2
+    bootimg_name=$3
+    echo ">> 开始执行 patch_kernel() ..."
+    local tmp_dir="${work_dir}/tmp/patch"
+    mkdir -p "${tmp_dir}" || { error "无法创建临时目录 ${tmp_dir}"; exit 1; }
+    cd "${tmp_dir}" || { error "无法进入 ${tmp_dir}"; exit 1; }
+
+    blue "查找 boot.img" "在 ${work_dir}/build/baserom/ 中查找"
+    local bootimg
+    bootimg=$(find "${work_dir}/build/baserom/" -name boot.img | head -n 1)
+    if [[ -z "$bootimg" ]]; then
+        error "未找到 boot.img"
+        exit 1
+    fi
+    cp "$bootimg" boot.img
+
+    blue "解包 boot.img" "调用 magiskboot unpack"
+    magiskboot unpack -h boot.img > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        error "解包 boot.img 失败"
+        exit 1
+    fi
+
+    # 处理 ramdisk.cpio（如果存在）
+    if [ -f ramdisk.cpio ]; then
+        local comp
+        comp=$(magiskboot decompress ramdisk.cpio | grep -v 'raw' | sed -n 's;.*\[\(.*\)\];\1;p')
+        if [ -n "$comp" ]; then
+            mv -f ramdisk.cpio ramdisk.cpio."$comp"
+            magiskboot decompress ramdisk.cpio."$comp" ramdisk.cpio > /dev/null 2>&1
+            if [ $? -ne 0 ] && $comp --help > /dev/null 2>&1; then
+                $comp -dc ramdisk.cpio."$comp" > ramdisk.cpio
+            fi
+        fi
+        mkdir -p ramdisk
+        chmod 755 ramdisk
+        cd ramdisk || { error "无法进入 ramdisk 目录"; exit 1; }
+        EXTRACT_UNSAFE_SYMLINKS=1 cpio -d -F ../ramdisk.cpio -i > /dev/null 2>&1
+        cd ..
+    fi
+
+    disable_avb_verify "${tmp_dir}/"
+
+    blue "替换 kernel" "复制新内核文件到临时目录"
+    cp -f "$kernel_file" "${tmp_dir}/kernel"
+
+    if [[ -f dtb ]] && [[ -n $dtb_file ]]; then
+        blue "检测到 dtb 文件" "替换 boot.img 中的 dtb 文件"
+        cp -fv "$dtb_file" "${tmp_dir}/dtb"
+    fi
+
+    if [ -d ramdisk ]; then
+        for f in fstab.qcom fstab.default fstab.emmc; do
+            if [ -f "ramdisk/${f}" ]; then
+                yellow "检测到" "${tmp_dir}/ramdisk/${f} 存在，无需额外处理"
+                if [[ $convert_to_aonly == true ]];then
+                    yellow "修改${f}转为A-only"
+                    sed -i "/,slotselect/d" ramdisk/${f}
+                fi
+            fi
+        done
+    fi
+
+    if [ -d ramdisk ]; then
+        cd ramdisk || { error "无法进入 ramdisk 目录"; exit 1; }
+        find . | sed 1d | cpio -H newc -R 0:0 -o -F ../ramdisk_new.cpio > /dev/null 2>&1
+        cd ..
+        if [ -n "$comp" ]; then
+            magiskboot compress=$comp ramdisk_new.cpio
+            if [ $? -ne 0 ] && $comp --help > /dev/null 2>&1; then
+                $comp -9c ramdisk_new.cpio > ramdisk.cpio."$comp"
+            fi
+        fi
+        local ramdisk_file
+        ramdisk_file=$(ls ramdisk_new.cpio* | tail -n1)
+        [ -n "$ramdisk_file" ] && cp -f "$ramdisk_file" ramdisk.cpio
+    fi
+
+    local nocompflag=""
+    case $comp in
+        cpio) nocompflag="-n" ;;
+    esac
+
+    blue "重打包 boot.img" "生成新 boot 镜像"
+    magiskboot repack $nocompflag boot.img "${work_dir}/devices/${base_product_device}/${bootimg_name}"
+    if [ $? -ne 0 ]; then
+        error "重打包 boot.img 失败"
+        exit 1
+    fi
+
+    local vendor_boot
+    vendor_boot=$(find "${work_dir}/build/baserom/" -name vendor_boot.img | head -n 1)
+    if [ -n "$vendor_boot" ]; then
+        blue "检测到 vendor_boot.img 开始处理 vendor_boot 镜像" "vendor_boot detected, patching..."
+        vendor_boot_tmp=$tmp_dir/vendor_boot_tmp
+        mkdir -p $vendor_boot_tmp || { error "无法创建 vendor_tmp 目录"; exit 1; }
+        cp "$vendor_boot" $vendor_boot_tmp/vendor_boot.img
+        cd $vendor_boot_tmp
+        magiskboot unpack -h vendor_boot.img > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            error "解包 vendor_boot.img 失败"
+            exit 1
+        fi
+
+        if [ -f ramdisk.cpio ]; then
+            local vcomp
+            vcomp=$(magiskboot decompress ramdisk.cpio | grep -v 'raw' | sed -n 's;.*\[\(.*\)\];\1;p')
+            if [ -n "$vcomp" ]; then
+                mv -f ramdisk.cpio ramdisk.cpio."$vcomp"
+                magiskboot decompress ramdisk.cpio."$vcomp" ramdisk.cpio > /dev/null 2>&1
+                if [ $? -ne 0 ] && $vcomp --help > /dev/null 2>&1; then
+                    $vcomp -dc ramdisk.cpio."$vcomp" > ramdisk.cpio
+                fi
+            fi
+            mkdir -p ramdisk
+            chmod 755 ramdisk
+            cd ramdisk || { error "无法进入 vendor ramdisk 目录"; exit 1; }
+            EXTRACT_UNSAFE_SYMLINKS=1 cpio -d -F ../ramdisk.cpio -i > /dev/null 2>&1
+            cd ..
+        fi
+
+        if [ -f dtb ]; then
+            blue "替换 dtb 文件" "Replacing dtb"
+            cp -fv "$dtb_file" "${vendor_boot_tmp}/dtb"
+        fi
+
+        if [ -d ramdisk ]; then
+            for f in fstab.qcom fstab.default fstab.emmc; do
+                if [ -f "ramdisk/${f}" ]; then
+                    yellow "检测到" "${vendor_boot_tmp}/ramdisk/${f} 存在，无需额外处理"
+                fi
+            done
+        fi
+
+        if [ -d ramdisk ]; then
+            cd ramdisk || { error "无法进入 vendor ramdisk 目录"; exit 1; }
+            find . | sed 1d | cpio -H newc -R 0:0 -o -F ../ramdisk_new.cpio > /dev/null 2>&1
+            cd ..
+            if [ -n "$vcomp" ]; then
+                magiskboot compress=$vcomp ramdisk_new.cpio
+                if [ $? -ne 0 ] && $vcomp --help > /dev/null 2>&1; then
+                    $vcomp -9c ramdisk_new.cpio > ramdisk.cpio."$vcomp"
+                fi
+            fi
+            local vramdisk
+            vramdisk=$(ls ramdisk_new.cpio* | tail -n1)
+            [ -n "$vramdisk" ] && cp -f "$vramdisk" ramdisk.cpio
+        fi
+
+        local v_nocompflag=""
+        case $vcomp in
+            cpio) v_nocompflag="-n" ;;
+        esac
+        blue "重打包 vendor_boot.img" "Repacking vendor_boot.img"
+        magiskboot repack $v_nocompflag vendor_boot.img "${work_dir}/devices/${base_product_device}/vendor_boot.img"
+        if [ $? -ne 0 ]; then
+            error "重打包 vendor_boot.img 失败"
+            exit 1
+        fi
+
+        #rm -rf vendor_tmp
+    else
+        blue "未检测到 vendor_boot.img 仅处理 boot.img"
+    fi
+
+    cd "${work_dir}" || exit 1
+    #rm -rf "${tmp_dir}"
+    blue "patch_kernel() 处理完成" "patching done"
+}
+
 add_feature() {
     feature=$1
     file=$2
@@ -318,23 +493,122 @@ add_feature() {
     done
     if [[ $found == 0 ]] ; then
         blue "添加功能: $feature" "Adding feature $feature"
-        sed -i "/<\/$parent_node>/i\\\t\\<$feature_node name=\"$feature\" \/>" "$file"
+        sed -i "/<\/$parent_node>/i\\\t\\<$feature_node name=\"$feature\"\/>" "$file"
     fi
+}
+
+add_feature_v2() {
+    type=$1
+    shift # 移除第一个参数，剩下都是 feature 项
+
+    case "$type" in
+        oplus_feature)
+            dir="build/portrom/images/my_product/etc/extension"
+            base_file="com.oplus.oplus-feature"
+            root_tag="oplus-config"
+            node_tag="oplus-feature"
+            attr_prefix='name='
+            ;;
+        app_feature)
+            dir="build/portrom/images/my_product/etc/extension"
+            base_file="com.oplus.app-features"
+            root_tag="extend_features"
+            node_tag="app_feature"
+            attr_prefix='name=' # 后面拼上 args
+            ;;
+        permission_feature)
+            dir="build/portrom/images/my_product/etc/permissions"
+            base_file="com.oplus.android-features"
+            root_tag="permissions"
+            node_tag="feature"
+            attr_prefix='name='
+            ;;
+        permission_oplus_feature)
+            dir="build/portrom/images/my_product/etc/permissions"
+            base_file="oplus.feature-android"
+            root_tag="oplus-config"
+            node_tag="oplus-feature"
+            attr_prefix='name='
+            ;;
+        *)
+            echo "❌ 无效的类型: $type"
+            return 1
+            ;;
+    esac
+
+    output_file="$dir/${base_file}-ext-bruce.xml"
+    mkdir -p "$dir"
+
+    # 如果文件不存在，先创建
+    if [[ ! -f "$output_file" ]]; then
+        echo "创建新文件: $output_file"
+        cat > "$output_file" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<$root_tag>
+</$root_tag>
+EOF
+    fi
+
+    for entry in "$@"; do
+    IFS='^' read -r feature comment extra <<< "$entry"
+    
+    [[ "$feature" == "$comment" ]] && comment=""
+    
+    [[ -z "$extra" ]] && extra=""
+
+found=0
+for xml in $(find build/portrom/images/my_product/etc/ -type f -name "*.xml"); do
+	if grep -n "$feature" "$xml" | grep -vq "<!--"; then
+           blue "功能${feature}已存在，跳过" "Feature $feature already exists, skipping..."
+           found=1
+           break
+    fi
+done
+
+    if [[ $found == 0 ]]; then
+        blue "✅ 添加 feature: $feature" "✅ feature: $feature Added."
+
+        if [[ "$type" == "app_feature" ]]; then
+            attrs="name=\"$feature\""
+            [[ -n "$extra" ]] && attrs="$attrs $extra"
+        else
+            attrs="name=\"$feature\""
+            [[ -n "$extra" ]] && attrs="$attrs $extra"
+        fi
+
+        # 写入备注
+        if [[ -n "$comment" ]]; then
+            sed -i "/<\/$root_tag>/i\\\    <!-- $comment -->" "$output_file"
+        fi
+        # 写入 feature 节点
+        sed -i "/<\/$root_tag>/i\\\    <$node_tag $attrs\/>" "$output_file"
+    fi
+done
 }
 
 remove_feature() {
     feature=$1
-    for file in $(find build/baserom/images/my_product/etc/ -type f -name "*.xml"); do
-        if grep -nq "<!--.*$feature.*-->" "$file"; then
-            blue "原机有该feature：$feature，但已被注释，继续删除" "Deleting $feature from $(basename $file) as it is commented out..."
-        elif grep -nq "$feature" "$file"; then
-            blue "原机有该feature：$feature，跳过删除" "Skip deleting $feature from $(basename $file)..."
-            return
-        fi
-    done 
+    force=$2  # 第二个参数，可为 "force"
+
+    if [[ "$force" == "force" ]]; then
+        blue "强制删除模式开启：忽略原机检测，直接删除 $feature"
+    else
+        # 非强制模式才执行原机检测逻辑
+        for file in $(find build/baserom/images/my_product/etc/ -type f -name "*.xml"); do
+            if grep -nq "<!--.*$feature.*-->" "$file"; then
+                blue "原机有该feature：$feature，但已被注释，继续删除" "Deleting $feature from $(basename $file) as it is commented out..."
+            elif grep -nq "$feature" "$file"; then
+                blue "原机有该feature：$feature，跳过删除" "Skip deleting $feature from $(basename $file)..."
+                return
+            fi
+        done 
+    fi
+
+    # 无论是否强制模式，只要执行到这里，就删除 portrom 中的 feature
     for file in $(find build/portrom/images/my_product/etc/ -type f -name "*.xml"); do
         if grep -nq "$feature" "$file"; then
             sed -i "/$feature/d" "$file"
+            blue "已删除 $feature 于 $(basename $file)"
         fi
     done
 }
@@ -362,12 +636,152 @@ update_prop_from_base() {
 
 }
 
+add_prop(){
+    prop=$1
+    value=$2
+    if ! grep -q "${prop}" build/portrom/images/my_product/build.prop;then
+        blue "添加prop: $prop=$value" "Adding prop: $prop=$value"
+        echo "$prop=$value" >> build/portrom/images/my_product/build.prop
+    elif grep -q "${prop}" build/portrom/images/my_product/build.prop;then
+        blue "修改prop: $prop=$value" "Editing prop: $prop=$value"
+        sed -i "s/${prop}=.*/${prop}=${value}/g" build/portrom/images/my_product/build.prop
+
+    fi
+        
+}
+
 remove_prop(){
     prop=$1
     if ! grep -q "${prop}" build/baserom/images/my_product/build.prop;then
     blue "删除prop: $prop" "Remove prop: $prop"
     sed -i "/${prop}/d" build/portrom/images/my_product/build.prop
     fi
+}
+
+add_prop_v2(){
+    prop=$1
+    value=$2
+    bruce_prop="build/portrom/images/my_product/etc/bruce/build.prop"
+    portrom_prop="build/portrom/images/my_product/build.prop"
+
+    # 如果两个文件都没有该prop，添加到bruce_prop
+    if ! grep -q "^${prop}=" "$bruce_prop" && ! grep -q "^${prop}=" "$portrom_prop"; then
+        blue "添加prop: $prop=$value" "Adding prop: $prop=$value"
+        echo "$prop=$value" >> "$bruce_prop"
+        return
+    fi
+
+    if grep -q "^${prop}=" "$bruce_prop"; then
+        blue "修改prop（bruce）: $prop=$value" "Editing prop (bruce): $prop=$value"
+        sed -i "s|^${prop}=.*|${prop}=${value}|" "$bruce_prop"
+    fi
+
+    if grep -q "^${prop}=" "$portrom_prop"; then
+        blue "修改prop（portrom）: $prop=$value" "Editing prop (portrom): $prop=$value"
+        sed -i "s|^${prop}=.*|${prop}=${value}|" "$portrom_prop"
+    fi
+}
+
+remove_prop_v2() {
+    prop="${1}"
+    force="${2}"
+    escaped_prop=$(echo "${prop}" | sed 's/\./\\./g')
+    
+    if [[ -n ${force} ]]; then
+        blue "强制删除prop: ${prop}" "Force remove prop: ${prop}"
+        # 匹配完整属性名 OR 属性名前缀（带后缀）
+        sed -i -E "/^(${escaped_prop}=|${escaped_prop}\.)/s/^/#/" build/portrom/images/my_product/etc/bruce/build.prop
+        sed -i -E "/^(${escaped_prop}=|${escaped_prop}\.)/s/^/#/" build/portrom/images/my_product/build.prop
+    else
+        # 检查原机是否存在该属性（完整名或前缀）
+        if ! grep -q -E "^(${escaped_prop}=|${escaped_prop}\.)" build/baserom/images/my_product/build.prop; then
+            blue "删除prop: ${prop}" "Remove prop: ${prop}"
+            sed -i -E "/^(${escaped_prop}=|${escaped_prop}\.)/s/^/#/" build/portrom/images/my_product/etc/bruce/build.prop
+        else
+            blue "原机存在该prop：${prop}，保留" "Keep prop (exists in base): ${prop}"
+        fi
+    fi
+}
+prepare_base_prop() {
+    source_build_prop="build/baserom/images/my_product/build.prop"
+    target_build_prop="build/portrom/images/my_product/build.prop"
+    bruce_prop="build/portrom/images/my_product/etc/bruce/build.prop"
+
+    mkdir -p "$(dirname "$target_build_prop")"
+    mkdir -p "$(dirname "$bruce_prop")"
+
+    # 备份当前移植好的 portrom build.prop
+    [[ ! -d tmp ]] && mkdir tmp
+
+    cp -f "$target_build_prop" tmp/build.prop.portrom.bak
+
+    # 用 baserom 的内容覆盖 portrom build.prop
+    cp -f "$source_build_prop" "$target_build_prop"
+
+    # 清空并初始化 bruce.build.prop
+    echo "# 移植包新增的属性" > "$bruce_prop"
+
+    # 添加 import 到新 build.prop（避免重复）
+    if ! grep -q "^import /mnt/vendor/my_product/etc/bruce/build.prop" "$target_build_prop"; then
+        echo "" >> "$target_build_prop"
+        echo "import /mnt/vendor/my_product/etc/bruce/build.prop" >> "$target_build_prop"
+    fi
+}
+
+add_prop_from_port() {
+    base_build_prop="build/baserom/images/my_product/build.prop"
+    old_portrom_prop="tmp/build.prop.portrom.bak"
+    bruce_prop="build/portrom/images/my_product/etc/bruce/build.prop"
+    
+    # 强制添加的属性列表
+    force_keys=(
+        ro.build.version.oplusrom
+        ro.build.version.oplusrom.display
+        ro.build.version.oplusrom.confidential
+        ro.build.version.realmeui
+    )
+
+    declare -A base_props
+    # 读取baserom属性
+    while IFS='=' read -r key value; do
+        [[ -z "$key" || "$key" =~ ^# ]] && continue
+        base_props["$key"]="$value"
+    done < "$base_build_prop"
+
+    # 创建临时文件处理
+    temp_file=$(mktemp)
+    
+    # 处理普通属性
+    while IFS='=' read -r key value; do
+        [[ -z "$key" || "$key" =~ ^# ]] && continue
+        
+        # 跳过强制添加的属性（后面统一处理）
+        if [[ " ${force_keys[*]} " == *" $key "* ]]; then
+            continue
+        fi
+
+        if [[ ! -v base_props["$key"] ]]; then
+            echo "$key=$value" >> "$temp_file"
+            blue "新增: $key=$value" "Added: $key=$value"
+        fi
+    done < "$old_portrom_prop"
+
+    # 处理强制添加属性
+    for key in "${force_keys[@]}"; do
+        # 安全获取属性值（处理换行符）
+        value=$(grep -m1 "^${key}=" "$old_portrom_prop" | awk -F'=' '{print $2}' | tr -d '\n\r')
+        
+        if [[ -n "$value" ]]; then
+            # 删除可能已存在的旧值
+            sed -i "/^${key}=/d" "$temp_file" 2>/dev/null
+            echo "$key=$value" >> "$temp_file"
+            blue "强制更新属性: $key=$value" "Force update: $key=$value"
+        fi
+    done
+
+    # 追加到最终文件
+    cat "$temp_file" >> "$bruce_prop"
+    rm -f "$temp_file"
 }
 
 smali_wrapper() {
@@ -517,6 +931,52 @@ patch_smartsidecar() {
     zipalign -p -f -v 4 tmp/SmartSideBar/SmartSideBar.apk $SmartSideBarAPK > /dev/null 2>&1
     apksigner sign -v --key otatools/key/testkey.pk8 --cert otatools/key/testkey.x509.pem $SmartSideBarAPK
     apksigner verify -v $SmartSideBarAPK
+}
+
+convert_version_to_number() {
+    local version="$1"
+    # 按点号分割版本号
+    IFS='.' read -ra parts <<< "$version"
+    
+    # 确保至少有3个部分，不足的补0
+    local major=${parts[0]:-0}
+    local minor=${parts[1]:-0}
+    local patch=${parts[2]:-0}
+    
+    # 转换为数值：major*10000 + minor*100 + patch
+    echo $((major * 10000 + minor * 100 + patch))
+}
+
+get_oplusrom_version() {
+    local max_version=""
+    local max_version_number=0
+    
+    # 可能的build.prop文件路径
+    local prop_files=(
+        "build/portrom/images/my_manifest/build.prop"
+        "build/portorm/images/my_product/build.prop" 
+    )
+    
+    # 遍历所有可能的build.prop文件
+    for prop_file in "${prop_files[@]}"; do
+        if [[ -f "$prop_file" ]]; then
+            local version_value=$(grep -E "^ro\.build\.version\.oplusrom\.display=" "$prop_file" 2>/dev/null | cut -d'=' -f2)
+            if [[ -n "$version_value" ]]; then
+                local clean_version=$(echo "$version_value" | sed 's/[^0-9.]//g')
+                # 转换为数值进行比较
+                IFS='.' read -ra parts <<< "$clean_version"
+                local version_number=$((${parts[0]:-0} * 10000 + ${parts[1]:-0} * 100 + ${parts[2]:-0}))
+                
+                # 如果当前版本号大于已知的最大版本号，则更新
+                if [[ $version_number -gt $max_version_number ]]; then
+                    max_version_number=$version_number
+                    max_version="$clean_version"
+                fi
+            fi
+        fi
+    done
+    
+    echo "$max_version"
 }
 
 trap 'error "强制中断脚本运行，以免误删重要文件！" "Script interrupted! Exiting to prevent accidental deletion." ; exit 1' SIGINT
