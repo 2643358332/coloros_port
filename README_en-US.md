@@ -13,16 +13,16 @@
 ## Supported Devices
 
 - OnePlus 8 OnePlus 8Pro OnePlus 8T OnePlus 9R(CN)
-- OnePlus 9 OnePlus 9Pro OnePlus 9RT
+- OnePlus 9 OnePlus 9Pro OnePlus 9RT (primarily)
 - Oppo Find X3 Oppo Find X3 Pro
 
 ## Tested devices and portroms
-- Test Base ROM:  OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)
-- Test Port ROM: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621)
+- Test Base ROM:  OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190), OnePlus 9 Pro (OxygenOS LE2123_14.0.0.600)
+- Test Port ROM: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621), OnePlus 13T (ColorOS 16.0.2.400)
 
 ## Working
 - Face unlock
-- Fringerprint
+- Fingerprint
 - Camera
 - Automatic Brightness
 - NFC
@@ -31,13 +31,13 @@
 
 ## BUG
 
-- AOD is too dim
+- AOD is too dim (SM8250)
 - Voice trigger is not working
 - Poweroff charging is not working
 - WiredEarphone is not working
 
 ## How to use
-- On WSL、ubuntu、deepin and other Linux
+- On Debian based distros:
 ```shell
     sudo apt update
     sudo apt upgrade

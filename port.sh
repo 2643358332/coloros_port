@@ -1207,6 +1207,11 @@ if [[ $(cat build/baserom/images/my_product/build.prop | grep "ro.oplus.audio.ef
     unzip -o devices/common/dolby_fix.zip -d build/portrom/images/ 
 fi
 
+if [[ -f build/portrom/images/vendor/lib64/vendor.oplus.hardware.radio-V2-ndk_platform.so ]] && [[ ${base_device_family} == "OPSM8350" ]];
+    blue "Fixing RIL..."
+    unzip -o devices/common/ril_fix_A16_SM8350.zip
+    rm -rf build/portrom/image/vendor/*/vendor.oplus.hardware.radio-V1-ndk_platform.so
+fi
 
 # Fix wechat/whatsapp volume isue
 cp -rf build/baserom/images/my_product/etc/audio*.xml build/portrom/images/my_product/etc/
