@@ -2195,7 +2195,7 @@ if [[ $pack_method == "stock" ]];then
     } >> out/target/product/${base_product_device}/META/dynamic_partitions_info.txt
 
     {
-        #echo "default_system_dev_certificate=key/testkey"
+        echo "default_system_dev_certificate=key/testkey"
         echo "recovery_api_version=3"
         echo "fstab_version=2"
         echo "ab_update=true"
