@@ -512,8 +512,8 @@ sed -i "s/ro.vendor.oplus.market.enname=.*/ro.vendor.oplus.market.enname=${base_
 sed -i '/ro.oplus.watermark.betaversiononly.enable=/d' build/portrom/images/my_manifest/build.prop
 
 
-BASE_PROP="/home/bruce/coloros_port/build/baserom/images/my_manifest/build.prop"
-PORT_PROP="/home/bruce/coloros_port/build/portrom/images/my_manifest/build.prop"
+BASE_PROP="build/baserom/images/my_manifest/build.prop"
+PORT_PROP="build/portrom/images/my_manifest/build.prop"
 
 KEYS="\.name= \.model= \.manufacturer= \.device= \.brand= \.my_product.type="
 
