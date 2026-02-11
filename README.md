@@ -40,7 +40,7 @@
     git clone https://github.com/toraidl/coloros_port_kebab.git
     cd coloros_port_kebab
     # Install dependencies
-    sudo ./setup.sh
+    ./setup.sh
     # Start porting
     sudo ./port.sh <baserom> <portrom>
 ```
