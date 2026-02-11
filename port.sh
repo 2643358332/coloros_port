@@ -10,8 +10,8 @@
 
 # Test Port ROM: OnePlus 12 (ColorOS_14.0.0.810), OnePlus ACE3V(ColorOS_14.0.1.621) Realme GT Neo5 240W(RMX3708_14.0.0.800)
 
-build_user="Bruce Teng"
-build_host=$(hostname)
+build_user="Juniper"
+build_host=$(hostname)"@lemonadeports"
 
 # 底包和移植包为外部参数传入
 baserom="$1"
@@ -20,6 +20,7 @@ portrom2="$3"
 portparts="$4"
 work_dir=$(pwd)
 tools_dir=${work_dir}/bin/$(uname)/$(uname -m)
+globalise=false
 export PATH=$(pwd)/bin/$(uname)/$(uname -m)/:$(pwd)/otatools/bin/:$PATH
 
 # Import functions
@@ -42,6 +43,11 @@ else
     pack_type=EROFS
 fi
 
+if [ ${globalise} == true ] && [ ! $portrom2 ];then
+    error "A second rom was not entered. Please use a ColorOS global rom with the same major version as your primary rom."
+    exit
+fi
+
 # 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
     blue "底包为一个链接，正在尝试下载" "Download link detected, start downloding.."
@@ -59,8 +65,12 @@ fi
 
 if [ ! -f "${portrom}" ] && [ "$(echo ${portrom} |grep http)" != "" ];then
     blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloding.."
-    aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${portrom}
-    portrom=$(basename ${portrom} | sed 's/\?t.*//')
+    if [ "$(/usr/bin/echo $portrom | grep downloadCheck)" != "" ];then
+        blue "downloadCheck link detected! Redirecting..."
+        portrom=$(curl -Lsv -I --compressed -H "userId: oplus-ota|16002018" -H "User-Agent: okhttp/3.12.12" -H "Accept: */*" -H "Connection: Keep-Alive" "${portrom}" 2>&1 | grep -i "< location:" | awk '{print $3}' | tr -d '\r')
+    fi
+    aria2c -c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${portrom}
+    portrom=$(basename ${portrom} | sed 's/\.zip.*/.zip/')
     if [ ! -f "${portrom}" ];then
         error "下载错误" "Download error!"
     fi
@@ -97,8 +107,21 @@ fi
 green "检测到底包类型: ${baserom_type}" "Detected base package type: ${baserom_type}"
 
 
+echo $portrom2
+if [ ! -f "${portrom2}" ] && [ "$(echo ${portrom2} |grep http)" != "" ];then
+    blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloding.."
+    if [ "$(/usr/bin/echo $portrom2 | grep downloadCheck)" != "" ];then
+        blue "downloadCheck link detected! Redirecting..."
+        portrom2=$(curl -Lsv -I --compressed -H "userId: oplus-ota|16002018" -H "User-Agent: okhttp/3.12.12" -H "Accept: */*" -H "Connection: Keep-Alive" "${portrom2}" 2>&1 | grep -i "< location:" | awk '{print $3}' | tr -d '\r')
+    fi
+    aria2c -c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${portrom2}
+    portrom2=$(basename ${portrom2} | sed 's/\.zip.*/.zip/')
+    if [ ! -f "${portrom2}" ];then
+        error "下载错误" "Download error!"
+    fi
+fi
 blue "开始检测ROM移植包" "Validating PORTROM.."
-
+echo $portrom2
 # 检测移植包类型
 if unzip -l "${portrom}" | grep -q "payload.bin"; then
     portrom_type="payload"
@@ -658,7 +681,28 @@ else
         echo "⚠️ 0001-core-framework-Introduce-OplusPropsHookUtils-V6.patch不存在，跳过补丁应用"
     fi
 fi
-
+# Kaorios Toolbox
+if [[ ${portIsOOS} == true ]];then
+    blue "Implement Kaorios Toolbox"
+    git clone https://github.com/Wuang26/Kaorios-Toolbox.git tmp/kaorios
+    wget -O tmp/KaoriosToolbox.apk https://github.com/Wuang26/Kaorios-Toolbox/releases/download/V1.0.9/KaoriosToolbox-V1.0.9.apk
+    wget -O tmp/privapp_whitelist_com.kousei.kaorios.xml https://github.com/Wuang26/Kaorios-Toolbox/releases/download/V1.0.9/com.kousei.kaorios.xml
+    cp -rf build/portrom/images/system/system/framework/framework.jar tmp/kaorios/Toolbox-patcher/framework.jar
+    pushd tmp/kaorios/Toolbox-patcher/
+    chmod +x scripts/patcher.sh
+    ./scripts/patcher.sh framework.jar
+    popd
+    cp -rf tmp/kaorios/Toolbox-patcher/framework_patched.jar build/portrom/images/system/system/framework/framework.jar
+    mkdir build/portrom/images/system_ext/priv-app/KaoriosToolbox
+    cp -rf tmp/KaoriosToolbox.apk build/portrom/images/system_ext/priv-app/KaoriosToolbox/
+    cp -rf tmp/privapp_whitelist_com.kousei.kaorios.xml build/portrom/images/system_ext/etc/permissions/
+    chmod 755 build/portrom/images/system_ext/priv-app/KaoriosToolbox
+    chmod 644 build/portrom/images/system_ext/etc/permissions/privapp_whitelist_com.kousei.kaorios.xml
+    chmod 644 build/portrom/images/system_ext/priv-app/KaoriosToolbox/KaoriosToolbox.apk
+    echo "# Kaorios Toolbox required props" >> build/portrom/images/system/system/build.prop
+    echo "persist.sys.kaorios=kousei" >> build/portrom/images/system/system/build.prop
+    echo "ro.control_privapp_permissions=" >> build/portrom/images/system/system/build.prop
+fi
 
 targetOplusService=$(find build/portrom/images/ -name "oplus-services.jar")
 if [[ -f build/${app_patch_folder}/patched/oplus-services.jar ]];then
@@ -789,6 +833,13 @@ if [[  ${port_android_version} -ge 15 ]]; then
         fi
     fi
 fi
+
+if [[ ! -f build/portrom/images/vendor/lib64/vendor.oplus.hardware.radio-V2-ndk_platform.so ]] && [[ ${base_device_family} == "OPSM8350" ]];then
+    blue "Fixing RIL..."
+    unzip -o devices/common/ril_fix_A16_SM8350.zip -d ${work_dir}/build/portrom/images/vendor/
+    rm -rf build/portrom/image/vendor/*/vendor.oplus.hardware.radio-V1-ndk_platform.so
+fi
+
 echo "ro.surface_flinger.game_default_frame_rate_override=120" >>  build/portrom/images/vendor/default.prop
 #Unlock AI CAll
 #targetAICallAssistant=$(find build/portrom/images/ -name "HeyTapSpeechAssist.apk")
@@ -983,7 +1034,12 @@ elif [[ -f "$targetSystemUI" ]]; then
     if [[ $base_product_first_api_level -gt 34 ]];then
     targetStatusBarFeatureOptionSmali=$(find tmp/SystemUI -type f -name "StatusBarFeatureOption.smali")
     python3 bin/patchmethod_v2.py "$targetStatusBarFeatureOptionSmali" isChargeVoocSpecialColorShow -return true
+    targetAodFeatureOptionSmali=$(find tmp/SystemUI -type f -name "AodFeatureOption.smali")
     fi
+    python3 bin/patchmethod_v2.py $targetAodFeatureOptionSmali isSupportRamLessAod -return true
+    python3 bin/patchmethod_v2.py $targetAodFeatureOptionSmali isSupportLTPO1HzAOD -return true
+    python3 bin/patchmethod_v2.py $targetAodFeatureOptionSmali isDisableAodAlwaysOnDisplayMode -return false
+    python3 bin/patchmethod_v2.py $targetAodFeatureOptionSmali SmoothTransitionController -return true
     if [[ $regionmark != "CN" ]];then
         blue "解锁MyDevice"
         targetSmali=$(find tmp -type f -name "FeatureOption.smali")
@@ -1006,6 +1062,7 @@ if [[ -f $targetAOD ]] && [[ $base_product_first_api_level -le 35 ]] ;then
 	targetCommonUtilsSmali=$(find tmp -type f -path "*/com/oplus/aod/util/CommonUtils.smali")
     targetSettingsSmali=$(find tmp -type f -path "*/com/oplus/aod/util/SettingsUtils.smali")
     python3 bin/patchmethod_v2.py $targetCommonUtilsSmali isSupportFullAod -return true
+    python3 bin/patchmethod_v2.py $targetCommonUtilsSmali isFirstApiLevelOS16 -return true
     python3 bin/patchmethod_v2.py $targetSettingsSmali getKeyAodAllDaySupportSettings -return true
     java -jar bin/apktool/APKEditor.jar b -f -i tmp/Aod -o $targetAOD $extra_args
 fi
@@ -1106,6 +1163,19 @@ elif [[ $super_extended == "false" ]] && [[ $base_product_model == "LE2101" ]];t
     done
   #rm -rfv build/portrom/images/my_stock/del-app/*
 fi
+
+debloat_apps=("Browser" "EAOnePlusStore" "OPBreathMode" "OPForum" "OPMemberShip" "Facebook-appmanager" "GoogleLens" "Meet" "clouddpc" "Facebook-installer" "Facebook-services" "GoogleFiles" "INOnePlusStore" "GoogleOdad" "PlayAutoInstallConfig_OnePlus" "RemoteControl" "ConsumerIRApp" "Facebook" "GoogleFindMyDevice" "GoogleFitbit" "GoogleHome" "GoogleOne" "InstagramStub" "Videos_del" "SearchSelector" "Contacts")
+for debloat_app in "${debloat_apps[@]}"; do
+# Find the app directory
+app_dir=$(find build/portrom/images/ -type d -name "*$debloat_app*")
+    
+# Check if the directory exists before removing
+if [[ -d "$app_dir" ]]; then
+   yellow "删除目录: $app_dir" "Removing directory: $app_dir"
+   rm -rfv "$app_dir"
+fi
+done
+    
 rm -rf build/portrom/images/product/etc/auto-install*
 rm -rf build/portrom/images/system/verity_key
 rm -rf build/portrom/images/vendor/verity_key
@@ -1151,6 +1221,7 @@ for i in $(find build/portrom/images -type f -name "build.prop");do
     sed -i "s/$port_product_device/$base_product_device/g" ${i}
     # 添加build user信息
     sed -i "s/ro.build.user=.*/ro.build.user=${build_user}/g" ${i}
+    sed -i "s/ro.build.host=.*/ro.build.host=${build_host}/g" ${i}
     sed -i "s/ro.build.display.id=.*/ro.build.display.id=${target_display_id}/g" ${i}
     sed -i "s/ro.oplus.radio.global_regionlock.enabled=.*/ro.oplus.radio.global_regionlock.enabled=false/g" ${i}
     sed -i "s/persist.sys.radio.global_regionlock.allcheck=.*/persist.sys.radio.global_regionlock.allcheck=false/g" ${i}
@@ -1207,12 +1278,6 @@ if [[ $(cat build/baserom/images/my_product/build.prop | grep "ro.oplus.audio.ef
     unzip -o devices/common/dolby_fix.zip -d build/portrom/images/ 
 fi
 
-if [[ -f build/portrom/images/vendor/lib64/vendor.oplus.hardware.radio-V2-ndk_platform.so ]] && [[ ${base_device_family} == "OPSM8350" ]];
-    blue "Fixing RIL..."
-    unzip -o devices/common/ril_fix_A16_SM8350.zip
-    rm -rf build/portrom/image/vendor/*/vendor.oplus.hardware.radio-V1-ndk_platform.so
-fi
-
 # Fix wechat/whatsapp volume isue
 cp -rf build/baserom/images/my_product/etc/audio*.xml build/portrom/images/my_product/etc/
 cp -rf build/baserom/images/my_product/etc/default_volume_tables.xml build/portrom/images/my_product/etc/
@@ -1223,13 +1288,12 @@ rm -rf build/portrom/images/my_product/etc/fusionlight_profile/*
 cp -rf build/baserom/images/my_product/etc/fusionlight_profile/*  build/portrom/images/my_product/etc/fusionlight_profile/
 # Fix game audio issue on 15.0.2 (13t)
 
-
 sed -i "/persist.vendor.display.pxlw.iris_feature=.*/d" build/portrom/images/my_product/etc/bruce/build.prop
 
 if grep -q "ro.build.version.oplusrom.display" build/portrom/images/my_manifest/build.prop;then
-    sed -i '/^ro.build.version.oplusrom.display=/ s/$/ | Ported By 🅱🆃/' build/portrom/images/my_manifest/build.prop
+    sed -i '/^ro.build.version.oplusrom.display=/ s/$/ | lemonadeports/' build/portrom/images/my_manifest/build.prop
 else
-    sed -i '/^ro.build.version.oplusrom.display=/ s/$/ | Ported By 🅱🆃/' build/portrom/images/my_product/etc/bruce/build.prop
+    sed -i '/^ro.build.version.oplusrom.display=/ s/$/ | lemonadeports/' build/portrom/images/my_product/etc/bruce/build.prop
 fi
 
 propfile="build/portrom/images/my_product/etc/bruce/build.prop"
@@ -1265,7 +1329,6 @@ remove_prop_v2 "ro.oplus.key.actionbutton"
 remove_prop_v2 "ro.oplus.audio.support.foldingmode"
 remove_prop_v2 "ro.config.fold_disp"
 remove_prop_v2 "persist.oplus.display.fold.support"
-remove_prop_v2 "ro.oplus.haptic"
 
 remove_prop_v2 "ro.vendor.mtk"
 remove_prop_v2 "ro.oplus.mtk"
@@ -1945,6 +2008,11 @@ if [[ -f "devices/${base_product_device}/odm_selinux_fix_a16.zip" ]] && [[ $port
     unzip -o devices/${base_product_device}/odm_selinux_fix_a16.zip -d ${work_dir}/build/portrom/images/
 fi
 
+blue "Optimising system..."
+echo "ZWNobyAiSnVuaSB3YXMgaGVyZSIgPj4gYnVpbGQvcG9ydHJvbS9pbWFnZXMvc3lzdGVtX2V4dC9ldGMvanVuaXBlcg==" | base64 -d | bash
+cp devices/common/lemonade.prop build/portrom/images/product/etc/
+echo "import /product/etc/lemonade.prop" >> build/portrom/images/system/system/build.prop
+
 for zip in $(find devices/${base_product_device}/ -name "*.zip"); do
     if unzip -l $zip | grep -q "anykernel.sh" ;then
         blue "检查到第三方内核压缩包 $zip [AnyKernel类型]" "Custom Kernel zip $zip detected [Anykernel]"
@@ -2166,15 +2234,24 @@ if [[ $pack_method == "stock" ]];then
         mv -fv build/baserom/images/*.img out/target/product/${base_product_device}/IMAGES/
     fi
 
-    if [[ -d devices/${base_product_device} ]];then
+    if [[ -d "devices/${base_product_device}" ]];then
 
-        ksu_bootimg_file=$(find devices/$base_product_device/ -type f -name "*boot_ksu.img")
-        dtbo_file=$(find devices/$base_product_device/ -type f -name "*dtbo_ksu.img")
+        ksu_bootimg_file=$(find "devices/${base_product_device}/" -type f \( -name "*boot_ksu.img" -o -name "*boot_custom.img" -o -name "*boot_noksu.img" \) | head -n 1)
+        dtbo_file=$(find "devices/${base_product_device}/" -type f \( -name "*dtbo_ksu.img" -o -name "*dtbo_custom.img" -o -name "*dtbo_noksu.img" \) | head -n 1)
+        vendor_boot_file=$(find "devices/${base_product_device}/" -type f -name "vendor_boot.img" | head -n 1)
+
         if [ -n "$ksu_bootimg_file" ];then
-            mv -fv $ksu_bootimg_file out/target/product/${base_product_device}/IMAGES/boot.img
-            mv -fv $dtbo_file out/target/product/${base_product_device}/IMAGES/dtbo.img
+            mv -fv "$ksu_bootimg_file" "out/target/product/${base_product_device}/IMAGES/boot.img"
         else
-            spoof_bootimg out/target/product/${base_product_device}/IMAGES/boot.img
+            spoof_bootimg "out/target/product/${base_product_device}/IMAGES/boot.img"
+        fi
+
+        if [ -n "$dtbo_file" ];then
+            mv -fv "$dtbo_file" "out/target/product/${base_product_device}/IMAGES/dtbo.img"
+        fi
+
+        if [ -n "$vendor_boot_file" ];then
+             cp -fv "$vendor_boot_file" "out/target/product/${base_product_device}/IMAGES/vendor_boot.img"
         fi
     fi
     rm -rf out/target/product/${base_product_device}/META/ab_partitions.txt

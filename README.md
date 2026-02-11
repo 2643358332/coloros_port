@@ -1,59 +1,67 @@
 <div align="center">
 
-# ColorOS 移植项目
-
-简体中文&nbsp;&nbsp;|&nbsp;&nbsp;[English](/README_en-US.md) 
+# ColorOS Porting Project
 
 </div>
 
-## 简介
-- ColorOS 一键自动移植打包
+## Supported Devices
 
-## 支持机型
+- OnePlus 8 OnePlus 8Pro OnePlus 8T OnePlus 9R(CN)
+- OnePlus 9 OnePlus 9Pro OnePlus 9RT (regularly tested on the OnePlus 9 Pro)
+- Oppo Find X3 Oppo Find X3 Pro
 
-- 一加8系列（一加8、一加8Pro、一加8T、一加9R）
-- 一加9系列（OnePlus 9、OnePlus9 RT、OnePlus9 Pro）
-- Oppo Find X3、Oppo Find X3 Pro
+## Tested devices and portroms
+- Test Base ROM:  OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190), OnePlus 9 Pro (OxygenOS LE2123_14.0.0.600)
+- Test Port ROM: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621), OnePlus 13T (ColorOS 16.0.2.400), OnePlus 10 Pro (OxygenOS_16.0.3.500)
+- Tested mixed parts: OnePlus 15 (OxygenOS_16.0.3.501)
 
-## 测试机型及版本
-- BASE: OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190)
-- PORT: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621)
-
-
-## 正常工作
-- 人脸
-- 挖孔
-- 指纹
-- 相机
+## Working features
+- Face unlock
+- Fingerprint
+- Camera
+- Automatic Brightness
 - NFC
-- 自动亮度
 - etc
 
 
-## BUG
+## Bugs
+- AOD is too dim (SM8250)
+- Voice trigger is not working
+- Poweroff charging is not working
+- WiredEarphone is not working
 
-- AOD亮度太低
-- 小布语音唤醒不可用
-- 关机充电不可用（会自动重启）
-- 有线耳机不可用
-
-## 如何使用
-- 在WSL、ubuntu、deepin等Linux下
+## How to use
+- On Debian based distros:
 ```shell
     sudo apt update
     sudo apt upgrade
     sudo apt install git -y
-    # 克隆项目
+    # Clone project
     git clone https://github.com/toraidl/coloros_port_kebab.git
     cd coloros_port_kebab
-    # 安装依赖
+    # Install dependencies
     sudo ./setup.sh
-    # 开始移植
-    sudo ./port.sh <底包路径> <移植包路径>
+    # Start porting
+    sudo ./port.sh <baserom> <portrom>
+```
+- On Arch Linux based distros:
+```shell
+    sudo pacman -Syu git # Always keep your computer up to date!
+    # **Make sure yay is installed!** If it isn't, run the commented line below:
+    # yay will automatically install if it's not on your system
+    # Clone project
+    git clone https://github.com/blahajcoding/coloros_port.git
+    cd coloros_port
+    # Install dependencies
+    sudo ./setup.sh
+    # Start porting
+    sudo ./port.sh <baserom> <portrom> <portrom2>
 ```
 
-## 感谢
-> 本项目使用了以下开源项目的部分或全部内容，感谢这些项目的开发者（排名顺序不分先后）。
+- baserom, portrom and portrom2 can be a direct download link. OTAs can be acquired from sources like [Daniel Springer's OTA downloader.](https://roms.danielspringer.at/index.php). If needed, downloadCheck links can be resolved for both portrom and portrom2.
+
+## Credits
+> In this project, some or all of the content is derived from the following open-source projects. Special thanks to the developers of these projects.
 
 - [「BypassSignCheck」by Weverses](https://github.com/Weverses/BypassSignCheck)
 - [「contextpatch」 by ColdWindScholar](https://github.com/ColdWindScholar/TIK)
@@ -61,4 +69,5 @@
 - [「gettype」by affggh](https://github.com/affggh/gettype)
 - [「lpunpack」by unix3dgforce](https://github.com/unix3dgforce/lpunpack)
 - [「miui_port」by ljc-fight](https://github.com/ljc-fight/miui_port)
-- etc
+- [「Link-Resolver」by CodeSenseiX](https://github.com/CodeSenseiX/Link-Resolver/)
+- [「All-day fullscreen + 1Hz LTPO AOD」by TenSei](https://t.me/TenseiMods)
