@@ -535,8 +535,8 @@ sed -i "s/ro.vendor.oplus.market.enname=.*/ro.vendor.oplus.market.enname=${base_
 sed -i '/ro.oplus.watermark.betaversiononly.enable=/d' build/portrom/images/my_manifest/build.prop
 
 
-BASE_PROP="/home/bruce/coloros_port/build/baserom/images/my_manifest/build.prop"
-PORT_PROP="/home/bruce/coloros_port/build/portrom/images/my_manifest/build.prop"
+BASE_PROP="build/baserom/images/my_manifest/build.prop"
+PORT_PROP="build/portrom/images/my_manifest/build.prop"
 
 KEYS="\.name= \.model= \.manufacturer= \.device= \.brand= \.my_product.type="
 
@@ -2277,7 +2277,7 @@ if [[ $pack_method == "stock" ]];then
     } >> out/target/product/${base_product_device}/META/dynamic_partitions_info.txt
 
     {
-        #echo "default_system_dev_certificate=key/testkey"
+        echo "default_system_dev_certificate=key/testkey"
         echo "recovery_api_version=3"
         echo "fstab_version=2"
         echo "ab_update=true"
