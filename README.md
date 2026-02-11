@@ -37,7 +37,7 @@
     sudo apt upgrade
     sudo apt install git -y
     # Clone project
-    git clone https://github.com/toraidl/coloros_port_kebab.git
+    git clone https://github.com/blahajcoding/coloros_port.git
     cd coloros_port_kebab
     # Install dependencies
     ./setup.sh
