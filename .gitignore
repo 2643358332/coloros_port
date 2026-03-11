@@ -1,3 +1,6 @@
 out/
 tmp/
 build/
+devices/*/kernel.zip
+cache/
+/*.zip

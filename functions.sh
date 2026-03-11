@@ -981,3 +981,17 @@ get_oplusrom_version() {
 
 trap 'error "强制中断脚本运行，以免误删重要文件！" "Script interrupted! Exiting to prevent accidental deletion." ; exit 1' SIGINT
 
+
+add_module() {
+    source $1
+    if [[ $port_android_version -le $module_required_android_version ]]; then
+        continue
+    fi
+    blue "Module: ${module_name}"
+    mkdir -p cache/${module_name}
+    curl -L ${module_repo}/raw/refs/heads/${module_repo_branch}/${module_name}/files.zip -o cache/${module_name}/files.zip
+    curl -L ${module_repo}/raw/refs/heads/${module_repo_branch}/${module_name}/script.sh -o cache/${module_name}/script.sh
+    module_files=cache/${module_name}/files
+    unzip cache/${module_name}/files.zip -d ${module_files}
+    source cache/${module_name}/script.sh
+}

@@ -1886,45 +1886,6 @@ if [[ -f devices/common/realme_gesture.zip ]] && [[ port_vendor_brand != "realme
     sed -i "s/ro.camera.privileged.3rdpartyApp=.*/ro.camera.privileged.3rdpartyApp=com.aiunit.aon\;com.oplus.gesture\;/g" build/portrom/images/my_stock/build.prop
 fi
 
-
-if [[ "${base_product_device}" == "OnePlus9Pro" ]] ||[[ "${base_product_device}" == "OnePlus9" ]] ||  [[ "${base_product_device}" == "OP4E5D" ]] || [[ "${base_product_device}" == "OP4E3F" ]]; then
-    if [[ "$portIsColorOS" == "true" ]];then
-        if [[ $port_android_version -ge "15" ]];then
-            if [[ -f devices/${base_product_device}/camera5.0-fix_cos.zip ]] ;then
-                blue "ColorOS15 相机修复" "ColorOS15 Camera Fix"
-                rm -rf build/portrom/images/my_product/app/OplusCamera
-                rm -rf build/portrom/images/my_product/product_overlay/framework/com.oplus.camera.*.jar
-                echo "ro.vendor.oplus.camera.isSupportLumo=1" >> build/portrom/images/my_product/etc/bruce/build.prop
-                unzip -o devices/${base_product_device}/camera5.0-fix_cos.zip -d build/portrom/images/
-                unzip -o devices/${base_product_device}/camera5.0-fix_odm.zip -d build/portrom/images/
-            fi
-        else
-            blue "添加实况照片拍摄支持" "Live Photo support"
-            rm -rf build/portrom/images/my_product/app/OplusCamera
-            rm -rf build/portrom/images/my_product/product_overlay/framework/com.oplus.camera.*.jar
-            unzip -o devices/${base_product_device}/live_photo_adds.zip -d build/portrom/images/
-        fi
-    elif  [[ "$portIsColorOSGlobal" == "true" ]];then
-        if  [[ -f devices/${base_product_device}/camera5.0-fix_cos_global.zip ]] ;then
-            blue "ColorOS Global 15 相机修复" "ColorOS15 Global Camera Fix"
-            rm -rf build/portrom/images/my_product/app/OplusCamera
-            rm -rf build/portrom/images/my_product/product_overlay/framework/com.oplus.camera.*.jar
-            echo "ro.vendor.oplus.camera.isSupportLumo=1" >> build/portrom/images/my_product/etc/bruce/build.prop
-            unzip -o devices/${base_product_device}/camera5.0-fix_cos_global.zip -d build/portrom/images/
-            unzip -o devices/${base_product_device}/camera5.0-fix_odm.zip -d build/portrom/images/
-        fi
-
-    elif  [[ "$portIsOOS" == "true" ]];then
-        if [[ -f devices/${base_product_device}/camera5.0-fix_oos.zip ]] ;then
-            blue "OxygenOS15 相机修复" "OxygenOS 15 Camera Fix"
-            rm -rf build/portrom/images/my_product/app/OplusCamera
-            rm -rf build/portrom/images/my_product/product_overlay/framework/com.oplus.camera.*.jar
-            echo "ro.vendor.oplus.camera.isSupportLumo=1" >> build/portrom/images/my_product/etc/bruce/build.prop
-            unzip -o devices/${base_product_device}/camera5.0-fix_oos.zip -d build/portrom/images/
-            unzip -o devices/${base_product_device}/camera5.0-fix_odm.zip -d build/portrom/images/
-        fi
-    fi
-fi
 #高能户外模式
 add_prop_v2 "ro.oplus.ridermode.support_feature_switch" "11"
 
@@ -2006,6 +1967,32 @@ fi
 
 if [[ -f "devices/${base_product_device}/odm_selinux_fix_a16.zip" ]] && [[ $port_android_version == 16 ]]; then
     unzip -o devices/${base_product_device}/odm_selinux_fix_a16.zip -d ${work_dir}/build/portrom/images/
+fi
+
+# Modules
+for module in devices/${base_product_device}/modules/*.sh; do
+    add_module $module
+done
+
+if [[ $portIsOOS == true ]]; then
+    for module in devices/${base_product_device}/modules/oos/*.sh; do
+        add_module $module
+    done
+fi
+if [[ $portIsColorOS == true ]]; then
+    for module in devices/${base_product_device}/modules/cos/*.sh; do
+        add_module $module
+    done
+fi
+if [[ $portIsColorOSGlobal == true ]]; then
+    for module in devices/${base_product_device}/modules/cos-global/*.sh; do
+        add_module $module
+    done
+fi
+if [[ $portIsRealmeUI == true ]]; then
+    for module in devices/${base_product_device}/modules/rui/*.sh; do
+        add_module $module
+    done
 fi
 
 blue "Optimising system..."
