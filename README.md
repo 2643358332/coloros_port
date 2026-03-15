@@ -57,6 +57,12 @@
     # Start porting
     sudo ./port.sh <baserom> <portrom> <portrom2>
 ```
+- On other Linux based distros:
+```shell
+    # Install Distrobox. This can be done with your default package manager. If it doesn't work, install it with the following command:curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh
+    # Start porting. All dependencies will be installed, and the script can be ran with root with this command.
+    ./port_containerised.sh <baserom> <portrom> <portrom2>
+``` 
 
 - baserom, portrom and portrom2 can be a direct download link. OTAs can be acquired from sources like [Daniel Springer's OTA downloader.](https://roms.danielspringer.at/index.php). If needed, downloadCheck links can be resolved for both portrom and portrom2.
 
