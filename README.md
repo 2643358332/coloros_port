@@ -47,7 +47,6 @@
 - On Arch Linux based distros:
 ```shell
     sudo pacman -Syu git # Always keep your computer up to date!
-    # **Make sure yay is installed!** If it isn't, run the commented line below:
     # yay will automatically install if it's not on your system
     # Clone project
     git clone https://github.com/blahajcoding/coloros_port.git
