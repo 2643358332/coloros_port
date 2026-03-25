@@ -174,6 +174,6 @@ if __name__ == "__main__":
         print("Done!")
     else:
         print(
-            "The path or filetype you have given may wrong, please check it wether correct."
+            "The path or filetype you have given may be wrong, please check whether it is correct."
         )
         Usage()

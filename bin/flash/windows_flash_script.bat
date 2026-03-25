@@ -3,7 +3,7 @@ cls
 setlocal enabledelayedexpansion
 reg query "HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Nls\Language" /v InstallLanguage|find "0804">nul&& set LANG=Chinese
 if "%LANG%"=="Chinese" (
-    TITLE windows Ë¢»ú½Å±¾ [ÇëÎğÑ¡ÖĞ´°¿Ú£¬¿¨×¡°´ÓÒ¼ü»ò»Ø³µ»ò·Å´óËõĞ¡´°¿Ú»Ö¸´]
+    TITLE windows åˆ·æœºè„šæœ¬ [è¯·å‹¿é€‰ä¸­çª—å£ï¼Œå¡ä½æŒ‰å³é”®æˆ–å›è½¦æˆ–æ”¾å¤§ç¼©å°çª—å£æ¢å¤]
 ) else (
     TITLE Windows Flash Script
 )
@@ -11,14 +11,14 @@ color 3f
 echo.
 if exist "super.zst" (
     if "%LANG%"=="Chinese" (
-        echo. ÕıÔÚ½âÑ¹super¾µÏñ,ÄÍĞÄµÈ´ı
+        echo. æ­£åœ¨è§£å‹superé•œåƒ,è€å¿ƒç­‰å¾…
     ) else (
         echo. Extracting the super image, wait patiently
     )
     platform-tools-windows\zstd.exe --rm -d super.zst -o super.img
     if not "%errorlevel%" == "0" (
         if "%LANG%"=="Chinese" (
-            echo. ×ª»»Ê§°Ü,°´ÈÎÒâ¼üÍË³ö
+            echo. è½¬æ¢å¤±è´¥,æŒ‰ä»»æ„é”®é€€å‡º
         ) else (
             echo. Conversion failed. Press any key to exit
         )
@@ -29,11 +29,11 @@ if exist "super.zst" (
 
 if "%LANG%"=="Chinese" (
     echo.
-    echo. 1. ±£ÁôÊı¾İË¢Èë
+    echo. 1. ä¿ç•™æ•°æ®åˆ·å…¥
     echo.
-    echo. 2. Ë«ÇåË¢Èë
+    echo. 2. åŒæ¸…åˆ·å…¥
     echo.
-    set /p input=ÇëÑ¡Ôñ-Ä¬ÈÏÑ¡Ôñ1,»Ø³µÖ´ĞĞ:
+    set /p input=è¯·é€‰æ‹©-é»˜è®¤é€‰æ‹©1,å›è½¦æ‰§è¡Œ:
 ) else (
     echo.
     echo. 1. Preserve user data during flashing
@@ -45,7 +45,7 @@ if "%LANG%"=="Chinese" (
 
 if "%LANG%"=="Chinese" (
     echo.
-    echo. »úĞÍÑéÖ¤ÖĞ...ÇëÈ·±£ÄúµÄÉè±¸´úºÅÎªdevice_code£¬²¢ÒÑ¾­½øÈëfastbootdÄ£Ê½ adb reboot fastboot¡£
+    echo. æœºå‹éªŒè¯ä¸­...è¯·ç¡®ä¿æ‚¨çš„è®¾å¤‡ä»£å·ä¸ºdevice_codeï¼Œå¹¶å·²ç»è¿›å…¥fastbootdæ¨¡å¼ adb reboot fastbootã€‚
 
     echo.
 ) else (
@@ -54,18 +54,18 @@ if "%LANG%"=="Chinese" (
     echo.
 )
 
-:: »ñÈ¡Éè±¸´úÂë
+:: è·å–è®¾å¤‡ä»£ç 
 for /f "tokens=2 delims=: " %%i in ('fastboot %* getvar product 2^>^&1 ^| findstr /r /c:"^product: "') do set "product=%%i"
 
-:: Ô¤ÆÚÉè±¸´úÂë
+:: é¢„æœŸè®¾å¤‡ä»£ç 
 set "expected_device=device_code"
 
-:: ÉèÖÃÓïÑÔÏà¹ØµÄÏûÏ¢
+:: è®¾ç½®è¯­è¨€ç›¸å…³çš„æ¶ˆæ¯
 if "%LANG%"=="Chinese" (
-    set "msg_mismatch= Éè±¸device_code²»Æ¥Åä¡£Çë¼ì²éÊÇ·ñÊÇ½øÈëfastbootdÄ£Ê½"
-    set "msg_continue=ÄãÏë¼ÌĞøÂğ£¿(y/n): "
-    set "msg_abort= ²Ù×÷ÒÑ±»ÓÃ»§ÖĞÖ¹¡£"
-    set "msg_continue_process=¼ÌĞø²Ù×÷..."
+    set "msg_mismatch= è®¾å¤‡device_codeä¸åŒ¹é…ã€‚è¯·æ£€æŸ¥æ˜¯å¦æ˜¯è¿›å…¥fastbootdæ¨¡å¼"
+    set "msg_continue=ä½ æƒ³ç»§ç»­å—ï¼Ÿ(y/n): "
+    set "msg_abort= æ“ä½œå·²è¢«ç”¨æˆ·ä¸­æ­¢ã€‚"
+    set "msg_continue_process=ç»§ç»­æ“ä½œ..."
 ) else (
     set "msg_mismatch=Mismatching image and device."
     set "msg_continue=Do you want to continue anyway? (y/n): "
@@ -73,7 +73,7 @@ if "%LANG%"=="Chinese" (
     set "msg_continue_process=Continuing with the process..."
 )
 
-:: ¼ì²éÊÇ·ñÆ¥Åä
+:: æ£€æŸ¥æ˜¯å¦åŒ¹é…
 if /i "!product!" neq "%expected_device%" (
     echo %msg_mismatch%
     set /p "choice=%msg_continue%"
@@ -85,11 +85,11 @@ if /i "!product!" neq "%expected_device%" (
 
 if "%LANG%"=="Chinese" (
     echo.
-    echo. 1. Ë¢ÈëKSUÄÚºË
+    echo. 1. åˆ·å…¥KSUå†…æ ¸
     echo.
-    echo. 2. Ë¢Èë¹Ù·½ÄÚºË
+    echo. 2. åˆ·å…¥å®˜æ–¹å†…æ ¸
     echo.
-    set /p kernel=ÇëÑ¡Ôñ-Ä¬ÈÏÑ¡Ôñ1,»Ø³µÖ´ĞĞ:
+    set /p kernel=è¯·é€‰æ‹©-é»˜è®¤é€‰æ‹©1,å›è½¦æ‰§è¡Œ:
 ) else (
     echo.
     echo. 1. Flashing KernelSU boot.img
@@ -101,7 +101,7 @@ if "%LANG%"=="Chinese" (
 
 if  "%kernel%"=="1" (
     if "%LANG%"=="Chinese" (
-	    echo. Ë¢ÈëµÚÈı·½boot_ksu.img
+	    echo. åˆ·å…¥ç¬¬ä¸‰æ–¹boot_ksu.img
         
     ) else (
         echo. Flashing custom boot.img
@@ -122,7 +122,7 @@ ping 127.0.0.1 -n 5 >nul 2>nul
 platform-tools-windows\fastboot.exe flash super %~dp0super.img
 if "%input%" == "2" (
 	if "%LANG%"=="Chinese" (
-	    echo. ÕıÔÚË«ÇåÏµÍ³,ÄÍĞÄµÈ´ı
+	    echo. æ­£åœ¨åŒæ¸…ç³»ç»Ÿ,è€å¿ƒç­‰å¾…
     ) else (
         echo. Wiping data without wiping /data/media/, please wait patiently
     ) 
@@ -131,7 +131,7 @@ if "%input%" == "2" (
 )
 REM SET_ACTION_SLOT_A_BEGIN
 if "%LANG%"=="Chinese" (
-	echo. ÉèÖÃ»î¶¯·ÖÇøÎª 'a'¡£¿ÉÄÜĞèÒªÒ»Ğ©Ê±¼ä¡£ÇëÎğÊÖ¶¯ÖØĞÂÆô¶¯»ò°ÎµôÊı¾İÏß£¬·ñÔò¿ÉÄÜµ¼ÖÂÉè±¸±ä×©¡£
+	echo. è®¾ç½®æ´»åŠ¨åˆ†åŒºä¸º 'a'ã€‚å¯èƒ½éœ€è¦ä¸€äº›æ—¶é—´ã€‚è¯·å‹¿æ‰‹åŠ¨é‡æ–°å¯åŠ¨æˆ–æ‹”æ‰æ•°æ®çº¿ï¼Œå¦åˆ™å¯èƒ½å¯¼è‡´è®¾å¤‡å˜ç –ã€‚
 ) else (
     echo. Starting the process to set the active slot to 'a.' This may take some time. Please refrain from manually restarting or unplugging the data cable, as doing so could result in the device becoming unresponsive.
 )
@@ -142,7 +142,7 @@ REM SET_ACTION_SLOT_A_END
 platform-tools-windows\fastboot.exe reboot
 
 if "%LANG%"=="Chinese" (
-    echo. Ë¢»úÍê³É,ÈôÊÖ»ú³¤Ê±¼äÎ´ÖØÆôÇëÊÖ¶¯ÖØÆô,°´ÈÎÒâ¼üÍË³ö
+    echo. åˆ·æœºå®Œæˆ,è‹¥æ‰‹æœºé•¿æ—¶é—´æœªé‡å¯è¯·æ‰‹åŠ¨é‡å¯,æŒ‰ä»»æ„é”®é€€å‡º
 ) else (
     echo. Flash completed. If the phone does not restart for an extended period, please manually restart. Press any key to exit.
 )

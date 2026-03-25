@@ -50,7 +50,7 @@ fi
 
 # 检查为本地包还是链接
 if [ ! -f "${baserom}" ] && [ "$(echo $baserom |grep http)" != "" ];then
-    blue "底包为一个链接，正在尝试下载" "Download link detected, start downloding.."
+    blue "底包为一个链接，正在尝试下载" "Download link detected, start downloading.."
     aria2c --max-download-limit=1024M --file-allocation=none -s10 -x10 -j10 ${baserom}
     baserom=$(basename ${baserom} | sed 's/\?t.*//')
     if [ ! -f "${baserom}" ];then
@@ -64,7 +64,7 @@ else
 fi
 
 if [ ! -f "${portrom}" ] && [ "$(echo ${portrom} |grep http)" != "" ];then
-    blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloding.."
+    blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloading.."
     if [ "$(/usr/bin/echo $portrom | grep downloadCheck)" != "" ];then
         blue "downloadCheck link detected! Redirecting..."
         portrom=$(curl -Lsv -I --compressed -H "userId: oplus-ota|16002018" -H "User-Agent: okhttp/3.12.12" -H "Accept: */*" -H "Connection: Keep-Alive" "${portrom}" 2>&1 | grep -i "< location:" | awk '{print $3}' | tr -d '\r')
@@ -109,7 +109,7 @@ green "检测到底包类型: ${baserom_type}" "Detected base package type: ${ba
 
 echo $portrom2
 if [ ! -f "${portrom2}" ] && [ "$(echo ${portrom2} |grep http)" != "" ];then
-    blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloding.."
+    blue "移植包为一个链接，正在尝试下载"  "Download link detected, start downloading.."
     if [ "$(/usr/bin/echo $portrom2 | grep downloadCheck)" != "" ];then
         blue "downloadCheck link detected! Redirecting..."
         portrom2=$(curl -Lsv -I --compressed -H "userId: oplus-ota|16002018" -H "User-Agent: okhttp/3.12.12" -H "Accept: */*" -H "Connection: Keep-Alive" "${portrom2}" 2>&1 | grep -i "< location:" | awk '{print $3}' | tr -d '\r')
@@ -368,7 +368,7 @@ for part in ${super_list};do
  #       yellow "跳过分区 [${part}]，已通过patched镜像复用" "Skip [${part}], already reused from patched image"
   #      continue
    # fi
-    # Skip already extraced parts from BASEROM
+    # Skip already extracted parts from BASEROM
     if [[ ! -d build/portrom/images/${part} ]]; then
         blue "提取 [${part}] 分区..." "Extracting [${part}]"
 
@@ -377,7 +377,7 @@ for part in ${super_list};do
         rm -rf "${work_dir}/build/baserom/images/${part}.img"
         ) &
     else
-        yellow "跳过从PORTORM提取分区[${part}]" "Skip extracting [${part}] from PORTROM"
+        yellow "跳过从PORTROM提取分区[${part}]" "Skip extracting [${part}] from PORTROM"
     fi
 done
 wait
@@ -393,7 +393,7 @@ green "安卓版本: 底包为[Android ${base_android_version}], 移植包为 [A
 # SDK版本
 base_android_sdk=$(< build/baserom/images/system/system/build.prop grep "ro.system.build.version.sdk" |awk 'NR==1' |cut -d '=' -f 2)
 port_android_sdk=$(< build/portrom/images/system/system/build.prop grep "ro.system.build.version.sdk" |awk 'NR==1' |cut -d '=' -f 2)
-green "SDK 版本: 底包为 [SDK ${base_android_sdk}], 移植包为 [SDK ${port_android_sdk}]" "SDK Verson: BASEROM: [SDK ${base_android_sdk}], PORTROM: [SDK ${port_android_sdk}]"
+green "SDK 版本: 底包为 [SDK ${base_android_sdk}], 移植包为 [SDK ${port_android_sdk}]" "SDK Version: BASEROM: [SDK ${base_android_sdk}], PORTROM: [SDK ${port_android_sdk}]"
 
 # ROM版本
 base_rom_version=$(<  build/baserom/images/my_manifest/build.prop grep "ro.build.display.ota" | awk 'NR==1' | cut -d '=' -f 2 | cut -d "_" -f 2-)
@@ -468,7 +468,7 @@ baseIsOOS=false
 baseIsRealmeUI=false
 if [[ "$base_area" == "domestic" && "$base_brand" != "realme" ]]; then
     baseIsColorOSCN=true
-elif [[ "base_brand" == "realme" ]];then
+elif [[ "$base_brand" == "realme" ]];then
     baseIsRealmeUI=true
 elif [[ "$base_area" == "gdpr" && "$base_brand" == "oneplus" ]]; then
     baseIsOOS=true
@@ -505,7 +505,7 @@ else
 fi
 
 if [[ ! -f build/portrom/images/system/system/bin/app_process32 && -n "$vendor_cpu_abilist32" ]]; then
-    blue "64bit only protrom detected. convert vendor to 64bit-only  "
+    blue "64bit only portrom detected. convert vendor to 64bit-only"
     sed -i "s/ro.vendor.product.cpu.abilist=.*/ro.vendor.product.cpu.abilist=arm64-v8a/g" build/portrom/images/vendor/build.prop
     sed -i "s/ro.vendor.product.cpu.abilist32=.*/ro.vendor.product.cpu.abilist32=/g" build/portrom/images/vendor/build.prop
     sed -i "s/ro.zygote=.*/ro.zygote=zygote64/g" build/portrom/images/vendor/default.prop
@@ -627,9 +627,9 @@ elif [[ -f build/portrom/images/system/system/framework/services.jar ]];then
         method_line=$(grep -n "$target_method" "$smali_file" | cut -d ':' -f 1)
         register_number=$(tail -n +"$method_line" "$smali_file" | grep -m 1 "move-result" | tr -dc '0-9')
         move_result_end_line=$(awk -v ML=$method_line 'NR>=ML && /move-result /{print NR; exit}' "$smali_file")
-        orginal_line_number=$method_line
+        original_line_number=$method_line
         replace_with_command="const/4 v${register_number}, 0x0"
-        { sed -i "${orginal_line_number},${move_result_end_line}d" "$smali_file" && sed -i "${orginal_line_number}i\\${replace_with_command}" "$smali_file"; } && blue "${smali_file}  修改成功" "${smali_file} patched"
+        { sed -i "${original_line_number},${move_result_end_line}d" "$smali_file" && sed -i "${original_line_number}i\\${replace_with_command}" "$smali_file"; } && blue "${smali_file}  修改成功" "${smali_file} patched"
         old_smali_dir=$smali_dir
     done < <(find tmp/services/smali/*/com/android/server/pm/ tmp/services/smali/*/com/android/server/pm/pkg/parsing/ -maxdepth 1 -type f -name "*.smali" -exec grep -H "$target_method" {} \; | cut -d ':' -f 1)
 
@@ -837,11 +837,11 @@ fi
 if [[ ! -f build/portrom/images/vendor/lib64/vendor.oplus.hardware.radio-V2-ndk_platform.so ]] && [[ ${base_device_family} == "OPSM8350" ]];then
     blue "Fixing RIL..."
     unzip -o devices/common/ril_fix_A16_SM8350.zip -d ${work_dir}/build/portrom/images/vendor/
-    rm -rf build/portrom/image/vendor/*/vendor.oplus.hardware.radio-V1-ndk_platform.so
+    rm -rf build/portrom/images/vendor/*/vendor.oplus.hardware.radio-V1-ndk_platform.so
 fi
 
 echo "ro.surface_flinger.game_default_frame_rate_override=120" >>  build/portrom/images/vendor/default.prop
-#Unlock AI CAll
+#Unlock AI Call
 #targetAICallAssistant=$(find build/portrom/images/ -name "HeyTapSpeechAssist.apk")
 if [[ -f build/${app_patch_folder}/patched/HeyTapSpeechAssist.apk ]]; then
     blue "复制已经处理过的HeyTapSpeechAssist.apk"
@@ -886,7 +886,7 @@ if [[ $ota_patched == "false" ]];then
 fi
 
 
-    EXTEDNED_MODELS=("PJF110" "PEEM00" "PEDM00""LE2120" "LE2121" "LE2123" "KB2000" "KB2001" "KB2005" "KB2003" "LE2110" "LE2111" "LE2112" "LE2113" "IN2010" "IN2011" "IN2012" "IN2013" "IN2020" "IN2021" "IN2022" "IN2023")
+    EXTENDED_MODELS=("PJF110" "PEEM00" "PEDM00" "LE2120" "LE2121" "LE2123" "KB2000" "KB2001" "KB2005" "KB2003" "LE2110" "LE2111" "LE2112" "LE2113" "IN2010" "IN2011" "IN2012" "IN2013" "IN2020" "IN2021" "IN2022" "IN2023")
 
     targetAIUnit=$(find build/portrom/images/ -name "AIUnit.apk")
     MODEL=PLG110
@@ -911,7 +911,7 @@ fi
         python3 bin/patchmethod_v2.py $targetSmali isSupport
 
         unit_config_list=$(find tmp/AIUnit -type f -name "unit_config_list.json")
-        jq --arg models_str "${EXTEDNED_MODELS[*]}" '
+        jq --arg models_str "${EXTENDED_MODELS[*]}" '
     # 定义数组变量
     ($models_str | split(" ")) as $new_models
     |
@@ -1045,7 +1045,7 @@ elif [[ -f "$targetSystemUI" ]]; then
         targetSmali=$(find tmp -type f -name "FeatureOption.smali")
         python3 bin/patchmethod_v2.py $targetSmali isSupportMyDevice
     fi
-    # tmp workround 
+    # tmp workaround
     for style_xml_file in $(find tmp/SystemUI -name "styles.xml");do 
         sed -i "s/style\/null/7f1403f6/g" $style_xml_file
     done
@@ -1336,7 +1336,6 @@ remove_prop_v2 "ro.oplus.mtk"
 remove_prop_v2 "persist.sys.oplus.wlan.atpc.qcom_use_iw"
 
 remove_prop_v2 "ro.product.oplus.cpuinfo"
-remove_prop_v2
 if [[ $base_android_version -lt 15 ]] && [[ $port_android_version -gt 15 ]];then
     remove_prop_v2 "ro.lcd.display.screen" 
     remove_prop_v2 "ro.display.brightness"
@@ -1557,7 +1556,7 @@ fi
 
 aimemory_app=$(find build/portrom -type f -name "AIMemory.apk")
 
-if [[ ! -f $aimemory_app ]] then
+if [[ ! -f $aimemory_app ]]; then
     
     if [[ $regionmark == "CN" ]];then 
         unzip -o devices/common/ai_memory.zip -d build/portrom/images/
@@ -1572,7 +1571,7 @@ for pkg in com.oplus.aimemory com.oplus.appbooster; do
     fi
 done
 
-if [[ ! -d build/portrom/images/my_product/etc/aisubsystem ]] then
+if [[ ! -d build/portrom/images/my_product/etc/aisubsystem ]]; then
      if [[ $regionmark != "CN" ]];then 
          unzip -o devices/common/ai_memory_in/aisubsystem.zip -d build/portrom/images/
      fi
@@ -1588,7 +1587,7 @@ if [[ -d devices/common/GTMode/overlay ]] && [[ $port_android_version != "16" ]]
     fi
 fi
 
-if [[ port_vendor_brand == "realme" ]] && [[ $regionmark == "CN" ]] ;then
+if [[ $port_vendor_brand == "realme" ]] && [[ $regionmark == "CN" ]] ;then
     add_feature_v2 oplus_feature "oplus.software.support.gt.mode^GT模式" 
     add_feature_v2 app_feature "com.android.settings.device_rm^Realme设备，显示GT模式需要"
     add_feature_v2 app_feature "com.oplus.smartsidebar.space.roulette.support^AI传送门" \
@@ -1685,7 +1684,7 @@ cp -rf  build/baserom/images/my_product/vendor/etc/* build/portrom/images/my_pro
         base_scanner_app=$(find build/baserom/images/ -type d -name "OcrScanner")                  
         target_scanner_app=$(find build/portrom/images/ -type d -name "OcrScanner")
         if [[ -n $base_scanner_app ]] && [[ -n $target_scanner_app ]];then
-                blue "替换原版扫一扫" "Replacing Stock OrcScanner"
+                blue "替换原版扫一扫" "Replacing Stock OcrScanner"
             rm -rfv $target_scanner_app/*
             cp -rfv $base_scanner_app $target_scanner_app
         fi
@@ -1810,7 +1809,7 @@ add_feature "oplus.software.display.sec_max_brightness_rm" build/portrom/images/
     echo "# 扬声器清理"
     echo "ro.oplus.audio.speaker_clean=true"
     echo "ro.vendor.oplus.radio.use_nitz_name=true"
-    # Fixeme A16 crash with AndroidRuntime: 	at com.android.server.display.feature.panel.OplusFeatureDCBacklight.applyApolloDCMode(OplusFeatureDCBacklight.java:300)
+    # FIXME A16 crash with AndroidRuntime: 	at com.android.server.display.feature.panel.OplusFeatureDCBacklight.applyApolloDCMode(OplusFeatureDCBacklight.java:300)
     #echo "persist.brightness.apollo=1"
 
 } >> build/portrom/images/my_product/etc/bruce/build.prop
@@ -1881,7 +1880,7 @@ else
     fi
 fi
 #Realme隔空手势 CN限定
-if [[ -f devices/common/realme_gesture.zip ]] && [[ port_vendor_brand != "realme" ]] && [[ $port_android_version -lt "16" ]];then
+if [[ -f devices/common/realme_gesture.zip ]] && [[ $port_vendor_brand != "realme" ]] && [[ $port_android_version -lt "16" ]];then
     unzip -o devices/common/realme_gesture.zip -d build/portrom/images/
     sed -i "s/ro.camera.privileged.3rdpartyApp=.*/ro.camera.privileged.3rdpartyApp=com.aiunit.aon\;com.oplus.gesture\;/g" build/portrom/images/my_stock/build.prop
 fi
@@ -2145,7 +2144,7 @@ for pname in ${super_list};do
             green "成功以 [erofs] 文件系统打包 [${pname}.img]" "Packing [${pname}.img] successfully with [erofs] format"
             #rm -rf build/portrom/images/${pname}
         else
-            error "以 [${pack_type}] 文件系统打包 [${pname}] 分区失败" "Faield to pack [${pname}]"
+            error "以 [${pack_type}] 文件系统打包 [${pname}] 分区失败" "Failed to pack [${pname}]"
             exit 1
         fi
         unset fsType
@@ -2307,11 +2306,11 @@ if [[ $pack_method == "stock" ]];then
             bootimg=$(find build/baserom/ -name "boot.img")
             dtboimg=$(find build/baserom/images -name "dtbo.img")
             vbmetaimg=$(find build/baserom/ -name "vbmeta.img")
-            vmbeta_systemimg=$(find build/baserom/ -name "vbmeta_sytem.img")
+            vbmeta_systemimg=$(find build/baserom/ -name "vbmeta_system.img")
             cp -rf $bootimg out/target/product/${base_product_device}/IMAGES/
             cp -rf $dtboimg out/target/product/${base_product_device}/firmware-update
             cp -rf $vbmetaimg out/target/product/${base_product_device}/firmware-update
-            cp -rf $vmbeta_systemimg out/target/product/${base_product_device}/firmware-update
+            cp -rf $vbmeta_systemimg out/target/product/${base_product_device}/firmware-update
         fi
 
         if [[ -d build/baserom/storage-fw ]];then
@@ -2395,7 +2394,7 @@ else
     fi
     lpmake $lpargs
     if [ -f "build/portrom/images/super.img" ];then
-        green "成功打包 super.img" "Pakcing super.img done."
+        green "成功打包 super.img" "Packing super.img done."
     else
         error "无法打包 super.img"  "Unable to pack super.img."
         exit 1
@@ -2405,7 +2404,7 @@ else
     #done
 
 
-    blue "正在压缩 super.img" "Comprising super.img"
+    blue "正在压缩 super.img" "Compressing super.img"
     zstd build/portrom/images/super.img -o build/portrom/super.zst
 
     blue "正在生成刷机脚本" "Generating flashing script"
@@ -2434,8 +2433,6 @@ else
                 part="bluetooth"
             elif [[ ${fwimg} == "cdt_engineering" ]];then
                 part="engineering_cdt"
-            elif [[ ${fwimg} == "BTFM" ]];then
-                part="bluetooth"
             elif [[ ${fwimg} == "dspso" ]];then
                 part="dsp"
             elif [[ ${fwimg} == "keymaster64" ]];then
@@ -2449,7 +2446,7 @@ else
             fi
 
             sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${part}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
-            sed -i "/# firmware/a fasatboot flash "${part}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            sed -i "/# firmware/a fastboot flash "${part}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
         done
         sed -i "/_b/d" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
         sed -i "s/_a//g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
@@ -2531,8 +2528,8 @@ else
         sed -i '/^REM OFFICAL_BOOT_START/,/^REM OFFICAL_BOOT_END/d' out/${os_type}_${rom_version}/windows_flash_script.bat
         
     elif [[ -f "$custom_bootimg_file" ]];then
-        custombootimg=$(basename "$custom_botimg_file")
-        mv -f $custom_botimg_file out/${os_type}_${rom_version}/
+        custombootimg=$(basename "$custom_bootimg_file")
+        mv -f $custom_bootimg_file out/${os_type}_${rom_version}/
         mv -f  devices/$base_product_device/dtbo_custom.img out/${os_type}_${rom_version}/firmware-update/dtbo_custom.img
         sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
         sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/windows_flash_script.bat
