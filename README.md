@@ -10,7 +10,7 @@
 - OnePlus 9 OnePlus 9Pro OnePlus 9RT (regularly tested on the OnePlus 9 Pro)
 - Oppo Find X3 Oppo Find X3 Pro
 
-## Tested devices and portroms
+## Tested devices and port ROMs
 - Test Base ROM:  OnePlus 8T (ColorOS_14.0.0.600), OnePlus 8 (ColorOS_IN2010_13.1.190), OnePlus 8 Pro (ColorOS_IN2020_13.1.0.190), OnePlus 9 Pro (OxygenOS LE2123_14.0.0.600)
 - Test Port ROM: OnePlus 12 (ColorOS_14.0.0.800), OnePlus ACE3V(ColorOS_14.0.1.621), OnePlus 13T (ColorOS 16.0.2.400), OnePlus 10 Pro (OxygenOS_16.0.3.500)
 - Tested mixed parts: OnePlus 15 (OxygenOS_16.0.3.501)
@@ -38,7 +38,7 @@
     sudo apt install git -y
     # Clone project
     git clone https://github.com/blahajcoding/coloros_port.git
-    cd coloros_port_kebab
+    cd coloros_port
     # Install dependencies
     ./setup.sh
     # Start porting
