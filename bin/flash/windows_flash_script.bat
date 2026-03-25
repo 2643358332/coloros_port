@@ -3,7 +3,7 @@ cls
 setlocal enabledelayedexpansion
 reg query "HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Nls\Language" /v InstallLanguage|find "0804">nul&& set LANG=Chinese
 if "%LANG%"=="Chinese" (
-    TITLE windows ˢ���ű� [����ѡ�д��ڣ���ס���Ҽ���س���Ŵ���С���ڻָ�]
+    TITLE windows 刷机脚本 [请勿选中窗口，卡住按右键或回车或放大缩小窗口恢复]
 ) else (
     TITLE Windows Flash Script
 )
@@ -11,14 +11,14 @@ color 3f
 echo.
 if exist "super.zst" (
     if "%LANG%"=="Chinese" (
-        echo. ���ڽ�ѹsuper����,���ĵȴ�
+        echo. 正在解压super镜像,耐心等待
     ) else (
         echo. Extracting the super image, wait patiently
     )
     platform-tools-windows\zstd.exe --rm -d super.zst -o super.img
     if not "%errorlevel%" == "0" (
         if "%LANG%"=="Chinese" (
-            echo. ת��ʧ��,��������˳�
+            echo. 转换失败,按任意键退出
         ) else (
             echo. Conversion failed. Press any key to exit
         )
@@ -29,11 +29,11 @@ if exist "super.zst" (
 
 if "%LANG%"=="Chinese" (
     echo.
-    echo. 1. ��������ˢ��
+    echo. 1. 保留数据刷入
     echo.
-    echo. 2. ˫��ˢ��
+    echo. 2. 双清刷入
     echo.
-    set /p input=��ѡ��-Ĭ��ѡ��1,�س�ִ��:
+    set /p input=请选择-默认选择1,回车执行:
 ) else (
     echo.
     echo. 1. Preserve user data during flashing
@@ -45,7 +45,7 @@ if "%LANG%"=="Chinese" (
 
 if "%LANG%"=="Chinese" (
     echo.
-    echo. ������֤��...��ȷ�������豸����Ϊdevice_code�����Ѿ�����fastbootdģʽ adb reboot fastboot��
+    echo. 机型验证中...请确保您的设备代号为device_code，并已经进入fastbootd模式 adb reboot fastboot。
 
     echo.
 ) else (
@@ -54,18 +54,18 @@ if "%LANG%"=="Chinese" (
     echo.
 )
 
-:: ��ȡ�豸����
+:: 获取设备代码
 for /f "tokens=2 delims=: " %%i in ('fastboot %* getvar product 2^>^&1 ^| findstr /r /c:"^product: "') do set "product=%%i"
 
-:: Ԥ���豸����
+:: 预期设备代码
 set "expected_device=device_code"
 
-:: ����������ص���Ϣ
+:: 设置语言相关的消息
 if "%LANG%"=="Chinese" (
-    set "msg_mismatch= �豸device_code��ƥ�䡣�����Ƿ��ǽ���fastbootdģʽ"
-    set "msg_continue=���������(y/n): "
-    set "msg_abort= �����ѱ��û���ֹ��"
-    set "msg_continue_process=��������..."
+    set "msg_mismatch= 设备device_code不匹配。请检查是否是进入fastbootd模式"
+    set "msg_continue=你想继续吗？(y/n): "
+    set "msg_abort= 操作已被用户中止。"
+    set "msg_continue_process=继续操作..."
 ) else (
     set "msg_mismatch=Mismatching image and device."
     set "msg_continue=Do you want to continue anyway? (y/n): "
@@ -73,7 +73,7 @@ if "%LANG%"=="Chinese" (
     set "msg_continue_process=Continuing with the process..."
 )
 
-:: ����Ƿ�ƥ��
+:: 检查是否匹配
 if /i "!product!" neq "%expected_device%" (
     echo %msg_mismatch%
     set /p "choice=%msg_continue%"
@@ -85,23 +85,23 @@ if /i "!product!" neq "%expected_device%" (
 
 if "%LANG%"=="Chinese" (
     echo.
-    echo. 1. ˢ��KSU�ں�
+    echo. 1. 刷入KSU内核
     echo.
-    echo. 2. ˢ��ٷ��ں�
+    echo. 2. 刷入官方内核
     echo.
-    set /p kernel=��ѡ��-Ĭ��ѡ��1,�س�ִ��:
+    set /p kernel=请选择-默认选择1,回车执行:
 ) else (
     echo.
     echo. 1. Flashing KernelSU boot.img
     echo.
-    echo. 2. Flashing Official boot.img
+    echo. 2. Flahsing Official boot.img
     echo.
     set /p kernel=Please select - 1 is selected by default, and enter to execute:
 )
 
 if  "%kernel%"=="1" (
     if "%LANG%"=="Chinese" (
-	    echo. ˢ�������boot_ksu.img
+	    echo. 刷入第三方boot_ksu.img
         
     ) else (
         echo. Flashing custom boot.img
@@ -122,7 +122,7 @@ ping 127.0.0.1 -n 5 >nul 2>nul
 platform-tools-windows\fastboot.exe flash super %~dp0super.img
 if "%input%" == "2" (
 	if "%LANG%"=="Chinese" (
-	    echo. ����˫��ϵͳ,���ĵȴ�
+	    echo. 正在双清系统,耐心等待
     ) else (
         echo. Wiping data without wiping /data/media/, please wait patiently
     ) 
@@ -131,7 +131,7 @@ if "%input%" == "2" (
 )
 REM SET_ACTION_SLOT_A_BEGIN
 if "%LANG%"=="Chinese" (
-	echo. ���û����Ϊ 'a'��������ҪһЩʱ�䡣�����ֶ�����������ε������ߣ�������ܵ����豸��ש��
+	echo. 设置活动分区为 'a'。可能需要一些时间。请勿手动重新启动或拔掉数据线，否则可能导致设备变砖。
 ) else (
     echo. Starting the process to set the active slot to 'a.' This may take some time. Please refrain from manually restarting or unplugging the data cable, as doing so could result in the device becoming unresponsive.
 )
@@ -142,7 +142,7 @@ REM SET_ACTION_SLOT_A_END
 platform-tools-windows\fastboot.exe reboot
 
 if "%LANG%"=="Chinese" (
-    echo. ˢ�����,���ֻ���ʱ��δ�������ֶ�����,��������˳�
+    echo. 刷机完成,若手机长时间未重启请手动重启,按任意键退出
 ) else (
     echo. Flash completed. If the phone does not restart for an extended period, please manually restart. Press any key to exit.
 )
