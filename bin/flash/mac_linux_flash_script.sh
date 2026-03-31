@@ -122,7 +122,7 @@ if [ $? -ne 0  ] ; then
 		elif [[ "$LANG" =~ ^zh_.*\.UTF-8$ ]]; then
 		    echo 機型device_code校驗失敗，檢查包是否匹配
 		else
-		    echo "Missmatching image and device [device_code]"
+		    echo "Mismatching image and device [device_code]"
 		fi
 	exit 1 
 fi

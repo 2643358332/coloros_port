@@ -29,7 +29,7 @@ fi
 
 if [ "$(uname -m)" == "aarch64" ];then
     echo "Device arch: aarch64"
-    if [ "$(id -u)" != "0" ] && [ "$(uname -m)" == "x86_64" ]  && [  "$(uname)" == "Linux" ];then
+    if [ "$(id -u)" != "0" ] && [ "$(uname)" == "Linux" ];then
         echo "Restarting script as root"
         exec sudo /bin/bash "$0" "$@"
         exit $?
@@ -41,11 +41,6 @@ fi
 
 if [ "$(uname)" == "Darwin" ] && [ "$(uname -m)" == "x86_64" ];then
     echo "Device arch: macOS x86_64"
-    if [ "$(id -u)" != "0" ] && [ "$(uname -m)" == "x86_64" ]  && [  "$(uname)" == "Linux" ];then
-        echo "Restarting script as root"
-        exec sudo /bin/bash "$0" "$@"
-        exit $?
-    fi
     pip3 install busybox
     brew install aria2 openjdk zstd coreutils gdu gnu-sed gnu-getopt grep xmlstarlet
 fi

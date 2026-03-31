@@ -133,11 +133,11 @@ patch_smali() {
             smalidir=$(echo $targetsmali |cut -d "/" -f 3)
             yellow "I: 开始patch目标 ${smalidir}" "Target ${smalidir} Found"
             search_pattern=$3
-            repalcement_pattern=$4
+            replacement_pattern=$4
             if [[ $5 == 'regex' ]];then
-                 sed -i "/${search_pattern}/c\\${repalcement_pattern}" $targetsmali
+                 sed -i "/${search_pattern}/c\\${replacement_pattern}" $targetsmali
             else
-            sed -i "s/$search_pattern/$repalcement_pattern/g" $targetsmali
+            sed -i "s/$search_pattern/$replacement_pattern/g" $targetsmali
             fi
             ${SMALI_COMMAND} a --api ${port_android_sdk} tmp/$foldername/${smalidir} -o tmp/$foldername/${smalidir}.dex > /dev/null 2>&1 || error " Smaling 失败" "Smaling failed"
             pushd tmp/$foldername/ >/dev/null || exit
@@ -148,10 +148,10 @@ patch_smali() {
                 yellow "检测到apk，进行zipalign处理。。" "APK file detected, initiating ZipAlign process..."
                 rm -rf ${targetfilefullpath}
 
-                # Align moddified APKs, to avoid error "Targeting R+ (version 30 and above) requires the resources.arsc of installed APKs to be stored uncompressed and aligned on a 4-byte boundary" 
+                # Align modified APKs, to avoid error "Targeting R+ (version 30 and above) requires the resources.arsc of installed APKs to be stored uncompressed and aligned on a 4-byte boundary" 
                 zipalign -p -f -v 4 tmp/$foldername/$targetfilename ${targetfilefullpath} > /dev/null 2>&1 || error "zipalign错误，请检查原因。" "zipalign error,please check for any issues"
                 yellow "apk zipalign处理完成" "APK ZipAlign process completed."
-                yellow "开始apksigner签名" "ApkSinger signing.."
+                yellow "开始apksigner签名" "ApkSigner signing.."
                 apksigner sign -v --key otatools/key/testkey.pk8 --cert otatools/key/testkey.x509.pem ${targetfilefullpath}
                 apksigner verify -v ${targetfilefullpath}
                 yellow "复制APK到目标位置：${targetfilefullpath}" "Copying APK to target ${targetfilefullpath}"
@@ -166,7 +166,7 @@ patch_smali() {
 
 }
 
-#check if a prperty is avaialble
+#check if a property is available
 is_property_exists () {
     if [ $(grep -c "$1" "$2") -ne 0 ]; then
         return 0
@@ -195,12 +195,12 @@ extract_partition() {
     target_dir=$2
     if [[ -f ${part_img} ]];then 
         if [[ $($tools_dir/gettype -i ${part_img} ) == "ext" ]];then
-            blue "[ext] 正在分解${part_name}" "[ext] Extracing ${part_name} "
+            blue "[ext] 正在分解${part_name}" "[ext] Extracting ${part_name} "
             python3 bin/imgextractor/imgextractor.py ${part_img} ${target_dir}  || { error "分解 ${part_name} 失败" "Extracting ${part_name} failed."; exit 1; }
             green "[ext]分解[${part_name}] 完成" "[ext] ${part_name} extracted."
             rm -rf ${part_img}      
         elif [[ $($tools_dir/gettype -i ${part_img}) == "erofs" ]]; then
-            blue "[erofs] 正在分解${part_name} " "[erofs] Extracing ${part_name} "
+            blue "[erofs] 正在分解${part_name} " "[erofs] Extracting ${part_name} "
             extract.erofs -x -i ${part_img}  -o $target_dir > /dev/null 2>&1 || { error "分解 ${part_name} 失败" "Extracting ${part_name} failed." ; exit 1; }
             green "[erofs] 分解[${part_name}] 完成" "[erofs] ${part_name} extracted."
             rm -rf ${part_img}
@@ -217,7 +217,7 @@ disable_avb_verify() {
         error "未找到 fstab 文件！" "No fstab found!"
         sleep 5
     else
-        blue "禁用 AVB 验证中..." "Disabling AVB verfication...."
+        blue "禁用 AVB 验证中..." "Disabling AVB verification...."
         for file in $fstab; do
             sed -i 's/,avb.*system//g' $file
             sed -i 's/,avb,/,/g' $file
@@ -920,7 +920,7 @@ fix_oldfaceunlock() {
 } 
 
 patch_smartsidecar() {
-    blue "Pathing SmarSidecar APK"
+    blue "Patching SmartSidecar APK"
     SmartSideBarAPK=$(find build/portrom/images/ -type f -name "SmartSideBar.apk" )
     #java -jar bin/apktool/APKEditor.jar d -i $SmartSideBarAPK -o tmp/SmartSideBar >/dev/null 2>&1
     baksmali_wrapper $SmartSideBarAPK
@@ -954,7 +954,7 @@ get_oplusrom_version() {
     # 可能的build.prop文件路径
     local prop_files=(
         "build/portrom/images/my_manifest/build.prop"
-        "build/portorm/images/my_product/build.prop" 
+        "build/portrom/images/my_product/build.prop"
     )
     
     # 遍历所有可能的build.prop文件
