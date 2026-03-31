@@ -984,10 +984,13 @@ trap 'error "强制中断脚本运行，以免误删重要文件！" "Script int
 
 add_module() {
     source $1
-    if [[ $port_android_version -le $module_required_android_version ]]; then
+    if [[ $port_android_version -ge $module_required_android_version ]]; then
         continue
     fi
-    blue "Module: ${module_name}"
+    if [[ $module_requires_experimental -eq $experimental ]]; then
+        continue
+    fi
+    blue "模块: ${module_display_name_cn}" "Module: ${module_display_name}"
     mkdir -p cache/${module_name}
     curl -L ${module_repo}/raw/refs/heads/${module_repo_branch}/${module_name}/files.zip -o cache/${module_name}/files.zip
     curl -L ${module_repo}/raw/refs/heads/${module_repo_branch}/${module_name}/script.sh -o cache/${module_name}/script.sh

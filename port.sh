@@ -33,10 +33,7 @@ port_partition=$(grep "partition_to_port" bin/port_config |cut -d '=' -f 2)
 super_list=$(grep "possible_super_list" bin/port_config |cut -d '=' -f 2)
 repackext4=$(grep "repack_with_ext4" bin/port_config |cut -d '=' -f 2)
 super_extended=$(grep "super_extended" bin/port_config |cut -d '=' -f 2)
-pack_with_dsu=$(grep "pack_with_dsu" bin/port_config | cut -d '=' -f 2)
 pack_method=$(grep "pack_method" bin/port_config | cut -d '=' -f 2)
-ddr_type=$(grep "ddr_type" bin/port_config | cut -d '=' -f 2)
-reusabe_partition_list=$(grep "reusabe_partition_list" bin/port_config | cut -d '=' -f 2)
 if [[ ${repackext4} == true ]]; then
     pack_type=EXT
 else
