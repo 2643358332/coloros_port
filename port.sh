@@ -190,7 +190,7 @@ export TMPDIR=$work_dir/tmp/
 # ===== 提取底包 =====
 if [[ ${baserom_type} == 'payload' ]]; then
     blue "正在提取底包 [payload.bin]" "Extracting files from BASEROM [payload.bin]"   
-    payload-dumper --out build/baserom/images/ "${baserom}"
+    payload_dumper -o build/baserom/images/ "${baserom}"
     green "底包 [payload.bin] 提取完毕" "[payload.bin] extracted."
 
 elif [[ ${baserom_type} == 'br' ]]; then
@@ -254,7 +254,7 @@ else
 
     if [[ ${portrom_type} == 'payload' ]]; then
         blue "正在提取移植包 [payload.bin]" "Extracting PORTROM [payload.bin]"
-        payload-dumper --partitions "${port_partition}" --out "build/${version_name}/" "${portrom}"
+        payload_dumper -i "${port_partition}" -o "build/${version_name}/" "${portrom}"
         cp -rfv build/${version_name}/*.img build/portrom/images/
         green "移植包 [payload.bin] 提取完毕" "[payload.bin] extracted."
 
@@ -301,7 +301,7 @@ elif [[ -n ${version_name2} ]];then
     if [[ ${portrom2_type} == 'payload' ]]; then
         blue "正在提取移植包 [payload.bin]" "Extracting files from PORTROM [payload.bin]"
         mkdir -p build/${version_name2}/
-        payload-dumper --partitions ${port_partition} --out build/${version_name2}/ $portrom2
+        payload_dumper -i ${port_partition} -o build/${version_name2}/ $portrom2
         for i in "${mix_port_part[@]}"; do
             cp -rfv build/${version_name2}/${i}.img build/portrom/images/
         done
