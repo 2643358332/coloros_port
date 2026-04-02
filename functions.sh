@@ -995,6 +995,6 @@ add_module() {
     curl -L ${module_repo}/raw/refs/heads/${module_repo_branch}/${module_name}/files.zip -o cache/${module_name}/files.zip
     curl -L ${module_repo}/raw/refs/heads/${module_repo_branch}/${module_name}/script.sh -o cache/${module_name}/script.sh
     module_files=cache/${module_name}/files
-    unzip cache/${module_name}/files.zip -d ${module_files}
+    unzip -o cache/${module_name}/files.zip -d ${module_files}
     source cache/${module_name}/script.sh
 }
