@@ -2,6 +2,5 @@ out/
 tmp/
 build/
 devices/*/kernel.zip
-devices/*/vendor_boot.zip
 cache/
 /*.zip
