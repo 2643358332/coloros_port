@@ -421,12 +421,6 @@ else
     base_market_name=$(< build/portrom/images/odm/build.prop grep "ro.vendor.oplus.market.name" |awk 'NR==1' |cut -d '=' -f 2)
 fi
 
-if grep -q "ro.vendor.oplus.market.enname" build/baserom/images/my_manifest/build.prop;then
-    base_market_enname=$(< build/baserom/images/my_manifest/build.prop grep "ro.vendor.oplus.market.enname" |awk 'NR==1' |cut -d '=' -f 2)
-else
-    base_market_enname=$(< build/portrom/images/odm/build.prop grep "ro.vendor.oplus.market.enname" |awk 'NR==1' |cut -d '=' -f 2)
-fi
-
 port_market_name=$(grep -r --include="*.prop"  --exclude-dir="odm" "ro.vendor.oplus.market.name" build/portrom/images/ | head -n 1 | awk "NR==1" | cut -d "=" -f2)
 
 green "市场名称: 底包为 [${base_market_name}], 移植包为 [${port_market_name}]" "Market Name: BASEROM: [${base_market_name}], PORTROM: [${port_market_name}]"
@@ -443,8 +437,6 @@ target_display_id_show=$(< build/portrom/images/my_manifest/build.prop grep "ro.
 base_vendor_brand=$(< build/baserom/images/my_manifest/build.prop grep "ro.product.vendor.brand" |awk 'NR==1' |cut -d '=' -f 2)
 port_vendor_brand=$(< build/portrom/images/my_manifest/build.prop grep "ro.product.vendor.brand" |awk 'NR==1' |cut -d '=' -f 2)
 
-port_ssi_brand=$(< build/portrom/images/system_ext/etc/build.prop grep "ro.oplus.image.system_ext.brand" |awk 'NR==1' |cut -d '=' -f 2)
-
 base_product_first_api_level=$(< build/baserom/images/my_manifest/build.prop grep "ro.product.first_api_level" |awk 'NR==1' |cut -d '=' -f 2)
 port_product_first_api_level=$(< build/portrom/images/my_manifest/build.prop grep "ro.product.first_api_level" |awk 'NR==1' |cut -d '=' -f 2)
 
@@ -455,8 +447,6 @@ target_device_family=$(< build/portrom/images/my_product/build.prop grep "ro.bui
 portrom_version_security_patch=$(< build/portrom/images/my_manifest/build.prop grep "ro.build.version.security_patch" |awk 'NR==1' |cut -d '=' -f 2 )
 port_oplusrom_version=$(< build/portrom/images/my_product/build.prop grep "ro.build.version.oplusrom.confidential" |awk 'NR==1' |cut -d '=' -f 2 )
 
-port_release_or_codename=$(< build/portrom/images/my_manifest/build.prop grep "ro.build.version.release_or_codename" |awk 'NR==1' |cut -d '=' -f 2)
-    
 #regionmark=$(< build/portrom/images/my_bigball/etc/region/build.prop grep "ro.vendor.oplus.regionmark" |awk 'NR==1' |cut -d '=' -f 2)
 regionmark=$(find build/portrom/images/ -name build.prop -exec grep -m1 "ro.vendor.oplus.regionmark=" {} \; -quit | cut -d '=' -f2)
 
@@ -464,8 +454,6 @@ base_regionmark=$(find build/baserom/images/ -name build.prop -exec grep -m1 "ro
 if [ -z "$base_regionmark" ]; then
   base_regionmark=$(find build/baserom/images/ -name build.prop -exec grep -m1 "ro.oplus.image.my_region.type=" {} \; -quit | cut -d '=' -f2 | cut -d '_' -f1)
 fi
-
-base_ab_partitions=$(< build/baserom/images/my_manifest/build.prop grep "ro.product.ab_ota_partitions" |awk 'NR==1' |cut -d '=' -f 2)
 
 vendor_cpu_abilist32=$(< build/portrom/images/vendor/build.prop grep "ro.vendor.product.cpu.abilist32" |awk 'NR==1' |cut -d '=' -f 2 )
 
@@ -538,30 +526,27 @@ else
 fi
 sed -i '/ro.build.version.release=/d' build/portrom/images/my_manifest/build.prop
 sed -i "s/ro.vendor.oplus.market.name=.*/ro.vendor.oplus.market.name=${base_market_name}/g" build/portrom/images/my_manifest/build.prop
-sed -i "s/ro.vendor.oplus.market.enname=.*/ro.vendor.oplus.market.enname=${base_market_enname}/g" build/portrom/images/my_manifest/build.prop
+sed -i "s/ro.vendor.oplus.market.enname=.*/ro.vendor.oplus.market.enname=${base_market_name}/g" build/portrom/images/my_manifest/build.prop
 
-sed -i "s/ro.product.ab_ota_partitions=.*/ro.product.ab_ota_partitions=${base_ab_partitions}/g" build/portrom/images/my_manifest/build.prop
-    
 
 sed -i '/ro.oplus.watermark.betaversiononly.enable=/d' build/portrom/images/my_manifest/build.prop
 
-if [[ $base_android_version -le 14 ]];then
-    BASE_PROP="build/baserom/images/my_manifest/build.prop"
-    PORT_PROP="build/portrom/images/my_manifest/build.prop"
 
-    KEYS="\.name= \.model= \.manufacturer= \.device= \.brand= \.my_product.type="
+BASE_PROP="build/baserom/images/my_manifest/build.prop"
+PORT_PROP="build/portrom/images/my_manifest/build.prop"
 
-    for k in $KEYS; do
-        grep "$k" "$BASE_PROP" | while IFS='=' read -r key value; do
-            if [[ "$key" == "ro.product.vendor.brand" ]]; then
-                # 特殊处理：强制写 OPPO
-                sed -i "s|^$key=.*|$key=OPPO|" "$PORT_PROP" 
-            elif grep -q "^$key=" "$PORT_PROP"; then
-                sed -i "s|^$key=.*|$key=$value|" "$PORT_PROP"
-            fi
-        done
+KEYS="\.name= \.model= \.manufacturer= \.device= \.brand= \.my_product.type="
+
+for k in $KEYS; do
+    grep "$k" "$BASE_PROP" | while IFS='=' read -r key value; do
+        if [[ "$key" == "ro.product.vendor.brand" ]]; then
+            # 特殊处理：强制写 OPPO
+            sed -i "s|^$key=.*|$key=OPPO|" "$PORT_PROP" 
+        elif grep -q "^$key=" "$PORT_PROP"; then
+            sed -i "s|^$key=.*|$key=$value|" "$PORT_PROP"
+        fi
     done
-fi
+done
 # OOS 16 mixed port
 if [[ -n $vendor_cpu_abilist32 ]] ;then
     sed -i "/ro.zygote=zygote64/d" build/portrom/images/my_manifest/build.prop
@@ -1265,7 +1250,7 @@ base_rom_density=$(grep "ro.sf.lcd_density" --include="*.prop" -r build/baserom/
 # fi
 
 # brand require lowercase 
-if [[ ${base_vendor_brand,,} != ${port_vendor_brand,,} ]] && [[ $portIsColorOSGlobal == false ]] && [[ $port_android_version -lt 16 ]];then
+if [[ ${base_vendor_brand,,} != ${port_vendor_brand,,} ]] && [[ $portIsColorOSGlobal == false ]];then
     # Global ColorOS needs to be Oppo brand or stuck on 
     sed -i "s/ro.oplus.image.system_ext.brand=.*/ro.oplus.image.system_ext.brand=${base_vendor_brand,,}/g" build/portrom/images/system_ext/etc/build.prop
 fi
@@ -1306,16 +1291,6 @@ if grep -q "ro.build.version.oplusrom.display" build/portrom/images/my_manifest/
     sed -i '/^ro.build.version.oplusrom.display=/ s/$/ | lemonadeports/' build/portrom/images/my_manifest/build.prop
 else
     sed -i '/^ro.build.version.oplusrom.display=/ s/$/ | lemonadeports/' build/portrom/images/my_product/etc/bruce/build.prop
-fi
-
-if [[ $portIsRealmeUI == true ]];then
-    case $port_android_version in
-        16) rui_version=7.0;;
-        15) rui_version=6.0;;
-        14) rui_version=5.0;;
-    esac
-    echo "ro.build.version.realmeui=$rui_version" >> build/portrom/images/my_product/etc/bruce/build.prop
-
 fi
 
 propfile="build/portrom/images/my_product/etc/bruce/build.prop"
@@ -1455,9 +1430,6 @@ oplus_features=(
     "oplus.software.systemui.pin_task^钉到流体云"
     "oplus.software.radio.hfp_comm_shared_support^iPhone互联"
     "oplus.hardware.display.motion_sickness^晕动舒缓提示"
-    "oplus.software.radio.nwpower_amc_special_sim"
-    "oplus.software.radio.mdlog_buffer_qdss_enable"
-    "oplus.software.radio.hfp_comm_shared_support"
 )
 
 for oplus_feature in ${oplus_features[@]}; do 
@@ -1542,21 +1514,10 @@ app_features=(
     "com.oplus.gallery3d.aihd_support"
     "os.graphic.gallery.collage.asset_bounds_break^出圈^args=\"boolean:true\""
     "os.graphic.gallery.collage.livephoto^^args=\"boolean:true\""
-    "com.oplus.wallpapers.3d_wallpaper^3D壁纸^args=\"boolean:true\""
-    "com.oplus.aipaint^^args=\"boolean:true\""
-    "com.oplus.aipaint.function_switch^^args=\"boolean:true\""
-
 )
 for app_feature in ${app_features[@]}; do 
     add_feature_v2 app_feature $app_feature
 done
-
- if [[ ${port_oplusrom_version} == "16.0.1" ]];then
-    add_feature_v2  app_feature  "com.oplus.wallpapers.ai_camera_movement^^args=\"boolean:true\""
- else
-    add_feature_v2  app_feature  "com.oplus.wallpapers.ai_camera_movement_for_products_before_15^^args=\"boolean:true\""
-fi
-
 add_feature_v2 permission_oplus_feature "oplus.software.game.cold.start.speedup.enable"
 add_feature_v2 permission_feature "com.plus.press_power_botton_experiment"
 add_feature_v2 permission_feature "oplus.video.hdr10_support"
@@ -2122,6 +2083,10 @@ fi
 #     fi
 # fi
 
+# 去除avb校验
+blue "去除avb校验" "Disable avb verification."
+disable_avb_verify build/portrom/images/
+
 # data 加密
 remove_data_encrypt=$(grep "remove_data_encryption" bin/port_config |cut -d '=' -f 2)
 if [[ ${remove_data_encrypt} == "true" ]];then
@@ -2238,7 +2203,7 @@ if [[ $pack_method == "stock" ]];then
     rm -rf out/target/product/${base_product_device}/
     mkdir -p out/target/product/${base_product_device}/IMAGES
     mkdir -p out/target/product/${base_product_device}/META
-    for part in SYSTEM SYSTEM_EXT PRODUCT VENDOR MY_MANIFEST; do
+    for part in SYSTEM SYSTEM_EXT PRODUCT VENDOR ODM; do
         mkdir -p out/target/product/${base_product_device}/$part
     done
     mv -fv build/portrom/images/*.img out/target/product/${base_product_device}/IMAGES/
@@ -2371,18 +2336,14 @@ if [[ $pack_method == "stock" ]];then
     ["product"]="PRODUCT"
     ["system_ext"]="SYSTEM_EXT"
     ["vendor"]="VENDOR"
-    ["my_manifest"]="MY_MANIFEST"
+    ["my_manifest"]="ODM"
+    
     )
 
     for dir in "${!prop_paths[@]}"; do
         prop_file=$(find "build/portrom/images/$dir" -type f -name "build.prop" -not -path "*/system_dlkm/*" -not -path "*/odm_dlkm/*" -print -quit)
-        
         if [ -n "$prop_file" ]; then
-            target_dir="out/target/product/${base_product_device}/${prop_paths[$dir]}"
-            if [ ! -d "$target_dir" ]; then
-                mkdir -p "$target_dir"
-            fi
-            cp "$prop_file" "$target_dir/"
+            cp "$prop_file" "out/target/product/${base_product_device}/${prop_paths[$dir]}/"
         fi
     done
     target_folder=${rom_version#*_}
