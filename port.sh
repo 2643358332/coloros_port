@@ -480,6 +480,8 @@ portIsColorOS=false
 portIsRealmeUI=false
 
 port_oplusrom_version=$(get_oplusrom_version)
+port_oplusrom_confidential_version=$(< build/baserom/images/my_manifest/build.prop grep "ro.build.version.oplusrom.confidential" |awk 'NR==1' |cut -d '=' -f 2)
+
 
 if [[ "$port_brand" == "realme" ]];then
     portIsRealmeUI=true
@@ -986,11 +988,9 @@ if [[ ${base_device_family} == "OPSM8250" ]] || [[ ${base_device_family} == "OPS
     fi
 fi 
 
+targetSettings=$(find build/portrom/images/ -name "Settings.apk")
+
 if [[ ${regionmark} != "CN" ]] && [[ ${base_product_model} != "IN20*" ]];then
-
-    # Charging info in Settings
-    targetSettings=$(find build/portrom/images/ -name "Settings.apk")
-
     if [[ -f $targetSettings ]];then
         blue "Charging info in Settings"
         cp -rf $targetSettings tmp/$(basename $targetSettings).bak
@@ -999,6 +999,19 @@ if [[ ${regionmark} != "CN" ]] && [[ ${base_product_model} != "IN20*" ]];then
         python3 bin/patchmethod_v2.py $targetSmali isPreferenceSupport
         java -jar bin/apktool/APKEditor.jar b -f -i tmp/Settings -o $targetSettings $extra_args
     fi
+fi 
+
+if [[ ${regionmark} == "CN" ]] && [[ ${port_oplusrom_version_confidential} == "V16.1.0" ]];then
+    if [[ -f $targetSettings ]];then
+        blue "Forcing Settings to use 16.1.0 assets..."
+        cp -rf $targetSettings tmp/$(basename $targetSettings).bak
+        java -jar bin/apktool/APKEditor.jar d -f -i $targetSettings -o tmp/Settings $extra_args
+        targetSmali=$(find tmp -type f -name "AboutDeviceOtaUpdatePreference.smali")
+        python3 bin/patchmethod_v2.py $targetSmali isCurrentOSColorOS161Resources -return true
+        java -jar bin/apktool/APKEditor.jar b -f -i tmp/Settings -o $targetSettings $extra_args
+    fi
+    blue "Fixing mediaserver crashes"
+    unzip -o devices/common/16.1-mediaserver-fix.zip -d build/portrom/images/ 
 fi 
 
 targetOplusLauncher=$(find build/portrom/images/ -name "OplusLauncher.apk")
@@ -2353,7 +2366,7 @@ if [[ $pack_method == "stock" ]];then
     ./bin/ota_from_target_files ${work_dir}/out/target/product/${base_product_device}/ ${work_dir}/out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip
     popd
     ziphash=$(md5sum out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip |head -c 10)
-    mv -f out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip out/$target_folder/ota_full-${rom_version}-${port_product_model}-${pack_timestamp}-$regionmark-${portrom_version_security_patch}-${ziphash}.zip
+    mv -f out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip out/$target_folder/ota_full-${rom_version}-${port_product_model}-${pack_timestamp}-$-${portrom_version_security_patch}-${ziphash}.zip
 	blue "打包完成： out/$target_folder/ota_full-${rom_version}-${port_product_model}-${pack_timestamp}-$regionmark-${portrom_version_security_patch}-${ziphash}.zip"
 else
    if [[ $is_ab_device == true ]]; then
