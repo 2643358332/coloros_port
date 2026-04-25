@@ -1001,7 +1001,7 @@ if [[ ${regionmark} != "CN" ]] && [[ ${base_product_model} != "IN20*" ]];then
     fi
 fi 
 
-if [[ ${regionmark} == "CN" ]] && [[ ${port_oplusrom_version_confidential_version} == "V16.1.0" ]];then
+if [[ ${regionmark} == "CN" ]] && [[ ${port_oplusrom_confidential_version} == "V16.1.0" ]];then
     if [[ -f $targetSettings ]];then
         blue "Forcing Settings to use 16.1.0 assets..."
         cp -rf $targetSettings tmp/$(basename $targetSettings).bak
