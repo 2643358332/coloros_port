@@ -2245,8 +2245,8 @@ if [[ "$pack_dsu" == true ]]; then
         echo "[ERROR] DSU包打包失败，五个img文件必须全部存在。"
         exit 1
     fi
-    dsu_zip=out/dsu-${port_product_model}-${pack_timestamp}.zip
-    (cd "$dsu_tmp" && zip -9 ../$(basename "$dsu_zip") *.img)
+    dsu_zip=out/dsu-${base_product_device}-${port_product_device}-${pack_timestamp}.zip
+    (cd "$dsu_tmp" && zip -0 ../$(basename "$dsu_zip") *.img)
     rm -rf "$dsu_tmp"
     echo "[INFO] DSU包已生成：$dsu_zip"
     exit 0
