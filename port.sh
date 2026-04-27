@@ -1262,10 +1262,10 @@ remove_prop_v2 "persist.oplus.software.alertslider.location"
 
 sed -i -e '$a\'$'\n''persist.adb.notify=0' build/portrom/images/system/system/build.prop
 sed -i -e '$a\'$'\n''persist.sys.usb.config=mtp,adb' build/portrom/images/system/system/build.prop
-sed -i -e '$a\'$'\n''ro.debuggable=1' build/portrom/images/system/system/build.prop
-sed -i -e '$a\'$'\n''ro.secure=0' build/portrom/images/system/system/build.prop
-sed -i -e '$a\'$'\n''service.adb.tcp.port=5555' build/portrom/images/system/system/build.prop
 sed -i -e '$a\'$'\n''persist.sys.disable_rescue=true' build/portrom/images/system/system/build.prop
+sed -i -e '$a\'$'\n''persist.service.adb.enable=1' build/portrom/images/system/system/build.prop
+sed -i -e '$a\'$'\n''ro.secure=0' build/portrom/images/system/system/build.prop
+sed -i -e '$a\'$'\n''ro.debuggable=1' build/portrom/images/system/system/build.prop
 
 base_rom_density=$(grep "ro.sf.lcd_density" --include="*.prop" -r build/baserom/images/my_product | head -n 1 | cut -d "=" -f2)
 [ -z ${base_rom_density} ] && base_rom_density=480
@@ -2245,7 +2245,7 @@ if [[ "$pack_dsu" == true ]]; then
         echo "[ERROR] DSU包打包失败，五个img文件必须全部存在。"
         exit 1
     fi
-    dsu_zip=out/dsu-${base_product_device}-${port_product_device}-${pack_timestamp}.zip
+    dsu_zip=out/dsu-${base_product_device}-${port_product_name}-${rom_version}.zip
     (cd "$dsu_tmp" && zip -0 ../$(basename "$dsu_zip") *.img)
     rm -rf "$dsu_tmp"
     echo "[INFO] DSU包已生成：$dsu_zip"
