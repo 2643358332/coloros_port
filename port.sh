@@ -1937,7 +1937,7 @@ if  [[ "${base_product_device}" == "OnePlus9Pro" ]] ||[[ "${base_product_device}
     echo -e "\n[FeatureTorch]\n    isSupportTorchStrengthLevel = TRUE\n    maxStrengthLevel = 4\n    defaultStrengthLevel = 4\n " >> build/portrom/images/odm/etc/camera/CameraHWConfiguration.config
 fi
 
-if [[ ${port_android_version} == 16 ]] && [[ ${base_android_version} -lt 15 ]];then
+if [[ ${port_android_version} == 16 ]] && [[ ${base_android_version} -lt 16 ]];then
     rm -rf build/portrom/images/system_ext/priv-app/com.qualcomm.location
     #remove_feature "oplus.software.display.dcbacklight_support" force
     if [[ -f  devices/common/nfc_fix_a16_v2.zip ]];then
