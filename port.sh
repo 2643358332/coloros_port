@@ -13,11 +13,22 @@
 build_user="Juniper"
 build_host=$(hostname)"@lemonadeports"
 
-# 底包和移植包为外部参数传入
+
+# 参数顺序：$1 底包路径  $2 移植包路径  $3 打包类型  $4 混合移植包路径  $5 混合移植包分区列表（逗号分隔）
 baserom="$1"
 portrom="$2"
-portrom2="$3"
-portparts="$4"
+pack_type_arg="$3"
+portrom2="$4"
+portparts="$5"
+pack_full=false
+pack_dsu=false
+if [[ "$pack_type_arg" == "-f" ]]; then
+    pack_full=true
+elif [[ "$pack_type_arg" == "-d" ]]; then
+    pack_dsu=true
+else
+    pack_full=true
+fi
 work_dir=$(pwd)
 tools_dir=${work_dir}/bin/$(uname)/$(uname -m)
 globalise=false
@@ -2215,163 +2226,34 @@ elif [[ $is_ab_device == false ]];then
 fi
 
 pack_timestamp=$(date +"%m%d%H%M")
+# ========== DSU包打包分支 ==========
+if [[ "$pack_dsu" == true ]]; then
+    dsu_imgs=(odm.img system.img system_ext.img product.img vendor.img)
+    dsu_dir=build/portrom/images
+    dsu_tmp=out/dsu_tmp_$pack_timestamp
+    mkdir -p "$dsu_tmp"
+    missing_img=false
+    for img in "${dsu_imgs[@]}"; do
+        if [[ ! -f "$dsu_dir/$img" ]]; then
+            echo "[ERROR] 缺少 $img，无法打包DSU包。"
+            missing_img=true
+        else
+            cp "$dsu_dir/$img" "$dsu_tmp/"
+        fi
+    done
+    if [[ "$missing_img" == true ]]; then
+        echo "[ERROR] DSU包打包失败，五个img文件必须全部存在。"
+        exit 1
+    fi
+    dsu_zip=out/dsu-${port_product_model}-${pack_timestamp}.zip
+    (cd "$dsu_tmp" && zip -9 ../$(basename "$dsu_zip") *.img)
+    rm -rf "$dsu_tmp"
+    echo "[INFO] DSU包已生成：$dsu_zip"
+    exit 0
+fi
+# ========== 全量包分支 ==========
 if [[ $pack_method == "stock" ]];then
-    rm -rf out/target/product/${base_product_device}/
-    mkdir -p out/target/product/${base_product_device}/IMAGES
-    mkdir -p out/target/product/${base_product_device}/META
-    for part in SYSTEM SYSTEM_EXT PRODUCT VENDOR ODM; do
-        mkdir -p out/target/product/${base_product_device}/$part
-    done
-    mv -fv build/portrom/images/*.img out/target/product/${base_product_device}/IMAGES/
-    if [[ -d build/baserom/firmware-update ]];then
-        bootimg=$(find build/baserom/ -name "boot.img")
-        cp -rf $bootimg out/target/product/${base_product_device}/IMAGES/
-    else
-        if [[ -f build/baserom/images/init_boot-kernelsu.img ]];then
-            mv build/baserom/images/init_boot-kernelsu.img build/baserom/images/init_boot.img
-        fi
-        mv -fv build/baserom/images/*.img out/target/product/${base_product_device}/IMAGES/
-    fi
-
-    if [[ -d "devices/${base_product_device}" ]];then
-
-        ksu_bootimg_file=$(find "devices/${base_product_device}/" -type f \( -name "*boot_ksu.img" -o -name "*boot_custom.img" -o -name "*boot_noksu.img" \) | head -n 1)
-        dtbo_file=$(find "devices/${base_product_device}/" -type f \( -name "*dtbo_ksu.img" -o -name "*dtbo_custom.img" -o -name "*dtbo_noksu.img" \) | head -n 1)
-        vendor_boot_file=$(find "devices/${base_product_device}/" -type f -name "vendor_boot.img" | head -n 1)
-
-        if [ -n "$ksu_bootimg_file" ];then
-            mv -fv "$ksu_bootimg_file" "out/target/product/${base_product_device}/IMAGES/boot.img"
-        else
-            spoof_bootimg "out/target/product/${base_product_device}/IMAGES/boot.img"
-        fi
-
-        if [ -n "$dtbo_file" ];then
-            mv -fv "$dtbo_file" "out/target/product/${base_product_device}/IMAGES/dtbo.img"
-        fi
-
-        if [ -n "$vendor_boot_file" ];then
-             cp -fv "$vendor_boot_file" "out/target/product/${base_product_device}/IMAGES/vendor_boot.img"
-        fi
-    fi
-    rm -rf out/target/product/${base_product_device}/META/ab_partitions.txt
-    rm -rf out/target/product/${base_product_device}/META/update_engine_config.txt
-    rm -rf out/target/product/${base_product_device}/target-file.zip
-    for part in out/target/product/${base_product_device}/IMAGES/*.img; do
-        partname=$(basename "$part" .img)
-        echo $partname >> out/target/product/${base_product_device}/META/ab_partitions.txt
-        if echo $super_list | grep -q -w "$partname"; then
-            super_list_info+="$partname "
-            otatools/bin/map_file_generator $part ${part%.*}.map
-        fi
-    done 
-    rm -rf out/target/product/${base_product_device}/META/dynamic_partitions_info.txt
-    let groupSize=superSize-1048576
-    {
-        echo "super_partition_size=$superSize"
-        echo "super_partition_groups=qti_dynamic_partitions"
-        echo "super_qti_dynamic_partitions_group_size=$groupSize"
-        echo "super_qti_dynamic_partitions_partition_list=$super_list_info"
-        echo "virtual_ab=true"
-        echo "virtual_ab_compression=true"
-    } >> out/target/product/${base_product_device}/META/dynamic_partitions_info.txt
-
-    {
-        echo "default_system_dev_certificate=key/testkey"
-        echo "recovery_api_version=3"
-        echo "fstab_version=2"
-        echo "ab_update=true"
-     } >> out/target/product/${base_product_device}/META/misc_info.txt
-    
-    {
-        echo "PAYLOAD_MAJOR_VERSION=2"
-        echo "PAYLOAD_MINOR_VERSION=8"
-    } >> out/target/product/${base_product_device}/META/update_engine_config.txt
-
-    if [[ "$is_ab_device" == false ]];then
-        sed -i "/ab_update=true/d" out/target/product/${base_product_device}/META/misc_info.txt
-        {
-            echo "blockimgdiff_versions=3,4"
-            echo "use_dynamic_partitions=true"
-            echo "dynamic_partition_list=$super_list_info"
-            echo "super_partition_groups=qti_dynamic_partitions"
-            echo "super_qti_dynamic_partitions_group_size=$superSize"
-            echo "super_qti_dynamic_partitions_partition_list=$super_list_info"
-            echo "board_uses_vendorimage=true"
-            echo "cache_size=402653184"
-
-        } >> out/target/product/${base_product_device}/META/misc_info.txt
-        mkdir -p out/target/product/${base_product_device}/OTA/bin
-        for part in MY_PRODUCT MY_BIGBALL MY_CARRIER MY_ENGINEERING MY_HEYTAP MY_MANIFEST MY_REGION MY_STOCK;do
-            mkdir -p out/target/product/${base_product_device}/$part
-        done
-
-        if [[ -f devices/${base_product_device}/OTA/bin/updater ]];then
-            cp -rf devices/${base_product_device}/OTA/bin/updater out/target/product/${base_product_device}/OTA/bin
-        else
-            cp -rf devices/common/non-ab/OTA/updater out/target/product/${base_product_device}/OTA/bin
-        fi
-        if [[ -d build/baserom/firmware-update ]];then
-            cp -rf build/baserom/firmware-update out/target/product/${base_product_device}/
-        elif find build/baserom/ -type f \( -name "*.elf" -o -name "*.mdn" -o -name "*.bin" \) | grep -q .; then
-            for firmware in $(find build/baserom/ -type f \( -name "*.elf" -o -name "*.mdn" -o -name "*.bin" \));do
-                mv  -rfv $firmware out/target/product/${base_product_device}/firmware-update
-            done
-            bootimg=$(find build/baserom/ -name "boot.img")
-            dtboimg=$(find build/baserom/images -name "dtbo.img")
-            vbmetaimg=$(find build/baserom/ -name "vbmeta.img")
-            vbmeta_systemimg=$(find build/baserom/ -name "vbmeta_system.img")
-            cp -rf $bootimg out/target/product/${base_product_device}/IMAGES/
-            cp -rf $dtboimg out/target/product/${base_product_device}/firmware-update
-            cp -rf $vbmetaimg out/target/product/${base_product_device}/firmware-update
-            cp -rf $vbmeta_systemimg out/target/product/${base_product_device}/firmware-update
-        fi
-
-        if [[ -d build/baserom/storage-fw ]];then
-            cp -rf build/baserom/storage-fw out/target/product/${base_product_device}/
-            cp -rf build/baserom/ffu_tool out/target/product/${base_product_device}/storage-fw
-        else
-            cp -rf build/baserom/ffu_tool out/target/product/${base_product_device}/
-	fi
-
-        export OUT=$(pwd)/out/target/product/${base_product_device}/
-        if [[ -f devices/${base_product_device}/releasetools.py ]];then
-            cp -rf devices/${base_product_device}/releasetools.py out/target/product/${base_product_device}/META/
-        else
-            cp -rf devices/common/releasetools.py out/target/product/${base_product_device}/META/
-        fi
-
-        mkdir -p out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
-        if [[ -f devices/${base_product_device}/recovery.fstab ]];then
-            cp -rf devices/${base_product_device}/recovery.fstab out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
-        else
-            cp -rf devices/common/recovery.fstab out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
-        fi
-    fi
-    declare -A prop_paths=(
-    ["system"]="SYSTEM"
-    ["product"]="PRODUCT"
-    ["system_ext"]="SYSTEM_EXT"
-    ["vendor"]="VENDOR"
-    ["my_manifest"]="ODM"
-    
-    )
-
-    for dir in "${!prop_paths[@]}"; do
-        prop_file=$(find "build/portrom/images/$dir" -type f -name "build.prop" -not -path "*/system_dlkm/*" -not -path "*/odm_dlkm/*" -print -quit)
-        if [ -n "$prop_file" ]; then
-            cp "$prop_file" "out/target/product/${base_product_device}/${prop_paths[$dir]}/"
-        fi
-    done
-    target_folder=${rom_version#*_}
-    pushd otatools
-    export PATH=$(pwd)/bin/:$PATH
-    mkdir -p ${work_dir}/out/$target_folder
-    ./bin/ota_from_target_files ${work_dir}/out/target/product/${base_product_device}/ ${work_dir}/out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip
-    popd
-    ziphash=$(md5sum out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip |head -c 10)
-    mv -f out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip out/$target_folder/ota_full-${rom_version}-${port_product_model}-${pack_timestamp}-$regionmark-${portrom_version_security_patch}-${ziphash}.zip
-	blue "打包完成： out/$target_folder/ota_full-${rom_version}-${port_product_model}-${pack_timestamp}-$regionmark-${portrom_version_security_patch}-${ziphash}.zip"
-else
+    # ...existing code...
    if [[ $is_ab_device == true ]]; then
         # 打包 super.img
         blue "打包V-A/B机型 super.img" "Packing super.img for V-AB device"
