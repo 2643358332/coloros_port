@@ -1407,6 +1407,9 @@ cp -rf  build/baserom/images/my_product/etc/refresh_rate_config.xml build/portro
 
 cp -rf  build/baserom/images/my_product/etc/sys_resolution_switch_config.xml build/portrom/images/my_product/etc/sys_resolution_switch_config.xml
 
+# 为AI大神辅助补充特性和文件
+unzip -o devices/common/AIPlaymate.zip -d build/portrom/images/
+
 cp -rf build/baserom/images/my_product/etc/permissions/com.oplus.sensor_config.xml build/portrom/images/my_product/etc/permissions/
 # add_feature "com.android.systemui.support_media_show" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 
@@ -1491,7 +1494,7 @@ app_features=(
     "com.android.systemui.qs_deform_enable^^args=\"boolean:true\""
     "com.oplus.mediaturbo.tencent_meeting^腾讯会议^args=\"boolean:true\""
     "com.oplus.note.aigc.ai_rewrtie.support^AI帮写"
-    #"feature.super_settings_smart_touch_v2.support^隔膜触控V2"
+    "feature.super_settings_smart_touch_v2.support^隔膜触控V2"
     "com.oplus.games.show_bypass_charging_when_gameapps^旁路供电^args=\"boolean:true\""
     "com.oplus.wallpapers.livephoto_wallpaper^^args=\"boolean:true\""
     "com.oplus.battery.autostart_limit_num^^args=\"String:8|10-16|15-24|20\""
@@ -1499,8 +1502,8 @@ app_features=(
     "com.oplus.battery.whitelist_vowifi^^args=\"boolean:true\""
     "com.oplus.battery.support.smart_refresh" # GT5Pro
     "com.oplus.battery.life.mode.notificate^^args=\"int:1\"" # 13T indicate if the device is support life mode 1.0：1 2.0：2 
-    "feature.support.game.AI_PLAY" #GT5Pro
-    "feature.support.game.AI_PLAY_version3" # GT5Pro
+    #"feature.support.game.AI_PLAY" #GT5Pro
+    #"feature.support.game.AI_PLAY_version3" # GT5Pro
 
     "feature.super_app_alive.support_min_ram^^args=\"int:12\""
     "feature.super_app_alive.support_flag^^args=\"int:15\""
