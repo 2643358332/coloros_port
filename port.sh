@@ -2241,7 +2241,6 @@ if [[ "$pack_dsu" == true ]]; then
     missing_img=false
     for img in "${dsu_imgs[@]}"; do
         if [[ ! -f "$dsu_dir/$img" ]]; then
-            echo "[ERROR] 缺少 $img，无法打包DSU包。"
             missing_img=true
         else
             cp "$dsu_dir/$img" "$dsu_tmp/"
@@ -2256,203 +2255,359 @@ if [[ "$pack_dsu" == true ]]; then
     rm -rf "$dsu_tmp"
     echo "[INFO] DSU包已生成：$dsu_zip"
     exit 0
-fi
-# ========== 全量包分支 ==========
-if [[ $pack_method == "stock" ]];then
-    # ...existing code...
-   if [[ $is_ab_device == true ]]; then
-        # 打包 super.img
-        blue "打包V-A/B机型 super.img" "Packing super.img for V-AB device"
-        lpargs="-F --virtual-ab --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 3 --device super:$superSize --group=qti_dynamic_partitions_a:$superSize --group=qti_dynamic_partitions_b:$superSize"
+elif [[ "$pack_full" == true ]]; then
+    # ========== 全量包分支 ==========
+    if [[ $pack_method == "stock" ]];then
+        rm -rf out/target/product/${base_product_device}/
+        mkdir -p out/target/product/${base_product_device}/IMAGES
+        mkdir -p out/target/product/${base_product_device}/META
+        for part in SYSTEM SYSTEM_EXT PRODUCT VENDOR ODM; do
+            mkdir -p out/target/product/${base_product_device}/$part
+        done
+        mv -fv build/portrom/images/*.img out/target/product/${base_product_device}/IMAGES/
+        if [[ -d build/baserom/firmware-update ]];then
+            bootimg=$(find build/baserom/ -name "boot.img")
+            cp -rf $bootimg out/target/product/${base_product_device}/IMAGES/
+        else
+            if [[ -f build/baserom/images/init_boot-kernelsu.img ]];then
+                mv build/baserom/images/init_boot-kernelsu.img build/baserom/images/init_boot.img
+            fi
+            mv -fv build/baserom/images/*.img out/target/product/${base_product_device}/IMAGES/
+        fi
 
-        for pname in ${super_list};do
-            if [ -f "build/portrom/images/${pname}.img" ];then
-                subsize=$(du -sb build/portrom/images/${pname}.img |tr -cd 0-9)
-                green "Super 子分区 [$pname] 大小 [$subsize]" "Super sub-partition [$pname] size: [$subsize]"
-                args="--partition ${pname}_a:none:${subsize}:qti_dynamic_partitions_a --image ${pname}_a=build/portrom/images/${pname}.img --partition ${pname}_b:none:0:qti_dynamic_partitions_b"
-                lpargs="$lpargs $args"
-                unset subsize
-                unset args
+        if [[ -d "devices/${base_product_device}" ]];then
+
+            ksu_bootimg_file=$(find "devices/${base_product_device}/" -type f \( -name "*boot_ksu.img" -o -name "*boot_custom.img" -o -name "*boot_noksu.img" \) | head -n 1)
+            dtbo_file=$(find "devices/${base_product_device}/" -type f \( -name "*dtbo_ksu.img" -o -name "*dtbo_custom.img" -o -name "*dtbo_noksu.img" \) | head -n 1)
+            vendor_boot_file=$(find "devices/${base_product_device}/" -type f -name "vendor_boot.img" | head -n 1)
+
+            if [ -n "$ksu_bootimg_file" ];then
+                mv -fv "$ksu_bootimg_file" "out/target/product/${base_product_device}/IMAGES/boot.img"
+            else
+                spoof_bootimg "out/target/product/${base_product_device}/IMAGES/boot.img"
+            fi
+
+            if [ -n "$dtbo_file" ];then
+                mv -fv "$dtbo_file" "out/target/product/${base_product_device}/IMAGES/dtbo.img"
+            fi
+
+            if [ -n "$vendor_boot_file" ];then
+                cp -fv "$vendor_boot_file" "out/target/product/${base_product_device}/IMAGES/vendor_boot.img"
+            fi
+        fi
+        rm -rf out/target/product/${base_product_device}/META/ab_partitions.txt
+        rm -rf out/target/product/${base_product_device}/META/update_engine_config.txt
+        rm -rf out/target/product/${base_product_device}/target-file.zip
+        for part in out/target/product/${base_product_device}/IMAGES/*.img; do
+            partname=$(basename "$part" .img)
+            echo $partname >> out/target/product/${base_product_device}/META/ab_partitions.txt
+            if echo $super_list | grep -q -w "$partname"; then
+                super_list_info+="$partname "
+                otatools/bin/map_file_generator $part ${part%.*}.map
+            fi
+        done 
+        rm -rf out/target/product/${base_product_device}/META/dynamic_partitions_info.txt
+        let groupSize=superSize-1048576
+        {
+            echo "super_partition_size=$superSize"
+            echo "super_partition_groups=qti_dynamic_partitions"
+            echo "super_qti_dynamic_partitions_group_size=$groupSize"
+            echo "super_qti_dynamic_partitions_partition_list=$super_list_info"
+            echo "virtual_ab=true"
+            echo "virtual_ab_compression=true"
+        } >> out/target/product/${base_product_device}/META/dynamic_partitions_info.txt
+
+        {
+            echo "default_system_dev_certificate=key/testkey"
+            echo "recovery_api_version=3"
+            echo "fstab_version=2"
+            echo "ab_update=true"
+        } >> out/target/product/${base_product_device}/META/misc_info.txt
+        
+        {
+            echo "PAYLOAD_MAJOR_VERSION=2"
+            echo "PAYLOAD_MINOR_VERSION=8"
+        } >> out/target/product/${base_product_device}/META/update_engine_config.txt
+
+        if [[ "$is_ab_device" == false ]];then
+            sed -i "/ab_update=true/d" out/target/product/${base_product_device}/META/misc_info.txt
+            {
+                echo "blockimgdiff_versions=3,4"
+                echo "use_dynamic_partitions=true"
+                echo "dynamic_partition_list=$super_list_info"
+                echo "super_partition_groups=qti_dynamic_partitions"
+                echo "super_qti_dynamic_partitions_group_size=$superSize"
+                echo "super_qti_dynamic_partitions_partition_list=$super_list_info"
+                echo "board_uses_vendorimage=true"
+                echo "cache_size=402653184"
+
+            } >> out/target/product/${base_product_device}/META/misc_info.txt
+            mkdir -p out/target/product/${base_product_device}/OTA/bin
+            for part in MY_PRODUCT MY_BIGBALL MY_CARRIER MY_ENGINEERING MY_HEYTAP MY_MANIFEST MY_REGION MY_STOCK;do
+                mkdir -p out/target/product/${base_product_device}/$part
+            done
+
+            if [[ -f devices/${base_product_device}/OTA/bin/updater ]];then
+                cp -rf devices/${base_product_device}/OTA/bin/updater out/target/product/${base_product_device}/OTA/bin
+            else
+                cp -rf devices/common/non-ab/OTA/updater out/target/product/${base_product_device}/OTA/bin
+            fi
+            if [[ -d build/baserom/firmware-update ]];then
+                cp -rf build/baserom/firmware-update out/target/product/${base_product_device}/
+            elif find build/baserom/ -type f \( -name "*.elf" -o -name "*.mdn" -o -name "*.bin" \) | grep -q .; then
+                for firmware in $(find build/baserom/ -type f \( -name "*.elf" -o -name "*.mdn" -o -name "*.bin" \));do
+                    mv  -rfv $firmware out/target/product/${base_product_device}/firmware-update
+                done
+                bootimg=$(find build/baserom/ -name "boot.img")
+                dtboimg=$(find build/baserom/images -name "dtbo.img")
+                vbmetaimg=$(find build/baserom/ -name "vbmeta.img")
+                vbmeta_systemimg=$(find build/baserom/ -name "vbmeta_system.img")
+                cp -rf $bootimg out/target/product/${base_product_device}/IMAGES/
+                cp -rf $dtboimg out/target/product/${base_product_device}/firmware-update
+                cp -rf $vbmetaimg out/target/product/${base_product_device}/firmware-update
+                cp -rf $vbmeta_systemimg out/target/product/${base_product_device}/firmware-update
+            fi
+
+            if [[ -d build/baserom/storage-fw ]];then
+                cp -rf build/baserom/storage-fw out/target/product/${base_product_device}/
+                cp -rf build/baserom/ffu_tool out/target/product/${base_product_device}/storage-fw
+            else
+                cp -rf build/baserom/ffu_tool out/target/product/${base_product_device}/
+        fi
+
+            export OUT=$(pwd)/out/target/product/${base_product_device}/
+            if [[ -f devices/${base_product_device}/releasetools.py ]];then
+                cp -rf devices/${base_product_device}/releasetools.py out/target/product/${base_product_device}/META/
+            else
+                cp -rf devices/common/releasetools.py out/target/product/${base_product_device}/META/
+            fi
+
+            mkdir -p out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
+            if [[ -f devices/${base_product_device}/recovery.fstab ]];then
+                cp -rf devices/${base_product_device}/recovery.fstab out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
+            else
+                cp -rf devices/common/recovery.fstab out/target/product/${base_product_device}/RECOVERY/RAMDISK/etc/
+            fi
+        fi
+        declare -A prop_paths=(
+        ["system"]="SYSTEM"
+        ["product"]="PRODUCT"
+        ["system_ext"]="SYSTEM_EXT"
+        ["vendor"]="VENDOR"
+        ["my_manifest"]="ODM"
+        
+        )
+
+        for dir in "${!prop_paths[@]}"; do
+            prop_file=$(find "build/portrom/images/$dir" -type f -name "build.prop" -not -path "*/system_dlkm/*" -not -path "*/odm_dlkm/*" -print -quit)
+            if [ -n "$prop_file" ]; then
+                cp "$prop_file" "out/target/product/${base_product_device}/${prop_paths[$dir]}/"
             fi
         done
+        target_folder=${rom_version#*_}
+        pushd otatools
+        export PATH=$(pwd)/bin/:$PATH
+        mkdir -p ${work_dir}/out/$target_folder
+        ./bin/ota_from_target_files ${work_dir}/out/target/product/${base_product_device}/ ${work_dir}/out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip
+        popd
+        ziphash=$(md5sum out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip |head -c 10)
+        mv -f out/${base_product_device}-ota_full-${port_rom_version}-user-${port_android_version}.0.zip out/$target_folder/ota_full-${rom_version}-${port_product_model}-${pack_timestamp}-$regionmark-${portrom_version_security_patch}-${ziphash}.zip
+        blue "打包完成： out/$target_folder/ota_full-${rom_version}-${port_product_model}-${pack_timestamp}-$regionmark-${portrom_version_security_patch}-${ziphash}.zip"
     else
-        blue "打包A-only super.img" "Packing super.img for A-only device"
-        lpargs="-F --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 2 --block-size 4096 --device super:$superSize --group=qti_dynamic_partitions:$superSize"
-        for pname in ${super_list};do
-            if [ -f "build/portrom/images/${pname}.img" ];then
-                if [[ "$OSTYPE" == "darwin"* ]];then
-                subsize=$(find build/portrom/images/${pname}.img | xargs stat -f%z | awk ' {s+=$1} END { print s }')
-                else
+        if [[ $is_ab_device == true ]]; then
+            # 打包 super.img
+            blue "打包V-A/B机型 super.img" "Packing super.img for V-AB device"
+            lpargs="-F --virtual-ab --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 3 --device super:$superSize --group=qti_dynamic_partitions_a:$superSize --group=qti_dynamic_partitions_b:$superSize"
+
+            for pname in ${super_list};do
+                if [ -f "build/portrom/images/${pname}.img" ];then
                     subsize=$(du -sb build/portrom/images/${pname}.img |tr -cd 0-9)
+                    green "Super 子分区 [$pname] 大小 [$subsize]" "Super sub-partition [$pname] size: [$subsize]"
+                    args="--partition ${pname}_a:none:${subsize}:qti_dynamic_partitions_a --image ${pname}_a=build/portrom/images/${pname}.img --partition ${pname}_b:none:0:qti_dynamic_partitions_b"
+                    lpargs="$lpargs $args"
+                    unset subsize
+                    unset args
                 fi
-                green "Super 子分区 [$pname] 大小 [$subsize]" "Super sub-partition [$pname] size: [$subsize]"
-                args="--partition ${pname}:none:${subsize}:qti_dynamic_partitions --image ${pname}=build/portrom/images/${pname}.img"
-                lpargs="$lpargs $args"
-                unset subsize
-                unset args
-            fi
+            done
+        else
+            blue "打包A-only super.img" "Packing super.img for A-only device"
+            lpargs="-F --output build/portrom/images/super.img --metadata-size 65536 --super-name super --metadata-slots 2 --block-size 4096 --device super:$superSize --group=qti_dynamic_partitions:$superSize"
+            for pname in ${super_list};do
+                if [ -f "build/portrom/images/${pname}.img" ];then
+                    if [[ "$OSTYPE" == "darwin"* ]];then
+                    subsize=$(find build/portrom/images/${pname}.img | xargs stat -f%z | awk ' {s+=$1} END { print s }')
+                    else
+                        subsize=$(du -sb build/portrom/images/${pname}.img |tr -cd 0-9)
+                    fi
+                    green "Super 子分区 [$pname] 大小 [$subsize]" "Super sub-partition [$pname] size: [$subsize]"
+                    args="--partition ${pname}:none:${subsize}:qti_dynamic_partitions --image ${pname}=build/portrom/images/${pname}.img"
+                    lpargs="$lpargs $args"
+                    unset subsize
+                    unset args
+                fi
+            done
+        fi
+        lpmake $lpargs
+        if [ -f "build/portrom/images/super.img" ];then
+            green "成功打包 super.img" "Packing super.img done."
+        else
+            error "无法打包 super.img"  "Unable to pack super.img."
+            exit 1
+        fi
+        #for pname in ${super_list};do
+        #    rm -rf build/portrom/images/${pname}.img
+        #done
+
+
+        blue "正在压缩 super.img" "Compressing super.img"
+        zstd build/portrom/images/super.img -o build/portrom/super.zst
+
+        blue "正在生成刷机脚本" "Generating flashing script"
+
+        mkdir -p out/${os_type}_${rom_version}/META-INF/com/google/android/   
+        mkdir -p out/${os_type}_${rom_version}/firmware-update
+        mkdir -p out/${os_type}_${rom_version}/bin/windows/
+        cp -rf bin/flash/platform-tools-windows/* out/${os_type}_${rom_version}/bin/windows/
+        cp -rf bin/flash/windows_flash_script.bat out/${os_type}_${rom_version}/
+        cp -rf bin/flash/mac_linux_flash_script.sh out/${os_type}_${rom_version}/
+        cp -rf bin/flash/zstd out/${os_type}_${rom_version}/META-INF/
+        mv -f build/portrom/*.zst out/${os_type}_${rom_version}/
+        if [[ -f devices/${base_product_device}/update-binary ]];then
+            cp -rf devices/${base_product_device}/update-binary out/${os_type}_${rom_version}/META-INF/com/google/android/
+        else
+            cp -rf bin/flash/update-binary out/${os_type}_${rom_version}/META-INF/com/google/android/
+        fi
+        if [[ $is_ab_device = "false" ]];then
+            mv -f build/baserom/firmware-update/*.img out/${os_type}_${rom_version}/firmware-update
+            for fwimg in $(ls out/${os_type}_${rom_version}/firmware-update |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
+                if [[ $fwimg == *"xbl"* ]] || [[ $fwimg == *"dtbo"* ]] ;then
+                    # Warning: If wrong xbl img has been flashed, it will cause phone hard brick, so we just skip it with fastboot mode.
+                    continue
+
+                elif [[ ${fwimg} == "BTFM" ]];then
+                    part="bluetooth"
+                elif [[ ${fwimg} == "cdt_engineering" ]];then
+                    part="engineering_cdt"
+                elif [[ ${fwimg} == "dspso" ]];then
+                    part="dsp"
+                elif [[ ${fwimg} == "keymaster64" ]];then
+                    part="keymaster"
+                elif [[ ${fwimg} == "qupv3fw" ]];then
+                    part="qupfw"
+                elif [[ ${fwimg} == "static_nvbk" ]];then
+                    part="static_nvbk"
+                else
+                    part=${fwimg}                
+                fi
+
+                sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${part}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
+                sed -i "/# firmware/a fastboot flash "${part}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            done
+            sed -i "/_b/d" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i "s/_a//g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i '/^REM SET_ACTION_SLOT_A_BEGIN/,/^REM SET_ACTION_SLOT_A_END/d' out/${os_type}_${rom_version}/windows_flash_script.bat
+            sed -i '/# SET_ACTION_SLOT_A_BEGIN/,/# SET_ACTION_SLOT_A_END/d' out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+        else
+            mv -f build/baserom/images/*.img out/${os_type}_${rom_version}/firmware-update
+            for fwimg in $(ls out/${os_type}_${rom_version}/firmware-update |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
+                if [[ $fwimg == *"xbl"* ]] || [[ $fwimg == *"dtbo"* ]] || [[ $fwimg == *"reserve"* ]] || [[ $fwimg == *"boot"* ]];then
+                    rm -rfv out/${os_type}_${rom_version}/firmware-update/*reserve*
+                    # Warning: If wrong xbl img has been flashed, it will cause phone hard brick, so we just skip it with fastboot mode.
+                    continue
+                elif [[ $fwimg == "mdm_oem_stanvbk" ]] || [[ $fwimg == "spunvm" ]] ;then
+                    sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${fwimg}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
+                    sed -i "/\# firmware/a fastboot flash "${fwimg}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+                elif [ "$(echo ${fwimg} |grep vbmeta)" != "" ];then
+                    sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe --disable-verity --disable-verification flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
+                    sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe --disable-verity --disable-verification flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
+                    sed -i "/\# firmware/a fastboot --disable-verity --disable-verification flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+                    sed -i "/\# firmware/a fastboot --disable-verity --disable-verification flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+                else
+                    sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
+                    sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
+                    sed -i "/\# firmware/a fastboot flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+                    sed -i "/\# firmware/a fastboot flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+                fi
+            done
+        fi
+
+        sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+        sed -i "s/REGIONMARK/${regionmark}/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+        sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+        sed -i "s/REGIONMARK/${regionmark}/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+        sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+        sed -i "s/REGIONMARK/${regionmark}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+        sed -i "s/portversion/${port_rom_version}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+        sed -i "s/baseversion/${base_rom_version}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+        sed -i "s/andVersion/${port_android_version}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+        sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+
+        unix2dos out/${os_type}_${rom_version}/windows_flash_script.bat
+
+        #disable vbmeta
+        for img in $(find out/${os_type}_${rom_version}/ -type f -name "vbmeta*.img");do
+            blue "vbmeta验证禁用： $img" "Disable vbmeta verify: $img"
+            python3 bin/patch-vbmeta.py ${img}
         done
+
+        ksu_bootimg_file=$(find devices/$base_product_device/ -type f -name "*boot_ksu.img")
+        nonksu_bootimg_file=$(find devices/$base_product_device/ -type f -name "*boot_noksu.img")
+        custom_bootimg_file=$(find devices/$base_product_device/ -type f -name "*boot_custom.img")
+
+        if [[ -f $nonksu_bootimg_file ]];then
+            nonksubootimg=$(basename "$nonksu_bootimg_file")
+            mv -f $nonksu_bootimg_file out/${os_type}_${rom_version}/
+            mv -f  devices/$base_product_device/dtbo_noksu.img out/${os_type}_${rom_version}/firmware-update/dtbo_noksu.img
+            sed -i "s/boot_official.img/$nonksubootimg/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i "s/boot_official.img/$nonksubootimg/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+            sed -i "s/boot_official.img/$nonksubootimg/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            sed -i "s/dtbo.img/dtbo_noksu.img/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i "s/dtbo.img/dtbo_noksu.img/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+            sed -i "s/dtbo.img/dtbo_noksu.img/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            sed -i '/^REM OFFICAL_BOOT_START/,/^REM OFFICAL_BOOT_END/d' out/${os_type}_${rom_version}/windows_flash_script.bat
+        else
+            bootimg=$(find build/baserom/ out/${os_type}_${rom_version} -name "boot.img")
+            mv -f $bootimg out/${os_type}_${rom_version}/boot_official.img
+        fi
+
+        if [[ -f "$ksu_bootimg_file" ]];then
+            ksubootimg=$(basename "$ksu_bootimg_file")
+            mv -f $ksu_bootimg_file out/${os_type}_${rom_version}/
+            mv -f  devices/$base_product_device/dtbo_ksu.img out/${os_type}_${rom_version}/firmware-update/dtbo_ksu.img
+            sed -i "s/boot_tv.img/$ksubootimg/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i "s/boot_tv.img/$ksubootimg/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+            sed -i "s/boot_tv.img/$ksubootimg/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            sed -i "s/dtbo_tv.img/dtbo_ksu.img/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i "s/dtbo_tv.img/dtbo_ksu.img/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+            sed -i "s/dtbo_tv.img/dtbo_ksu.img/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            sed -i '/^REM OFFICAL_BOOT_START/,/^REM OFFICAL_BOOT_END/d' out/${os_type}_${rom_version}/windows_flash_script.bat
+            
+        elif [[ -f "$custom_bootimg_file" ]];then
+            custombootimg=$(basename "$custom_bootimg_file")
+            mv -f $custom_bootimg_file out/${os_type}_${rom_version}/
+            mv -f  devices/$base_product_device/dtbo_custom.img out/${os_type}_${rom_version}/firmware-update/dtbo_custom.img
+            sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+            sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            sed -i "s/dtbo_tv.img/dtbo_custom.img/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
+            sed -i "s/dtbo_tv.img/dtbo_custom.img/g" out/${os_type}_${rom_version}/windows_flash_script.bat
+            sed -i "s/dtbo_tv.img/dtbo_custom.img/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
+            
+        fi
+
+        find out/${os_type}_${rom_version} |xargs touch
+        pushd out/${os_type}_${rom_version}/ >/dev/null || exit
+        zip -r ${os_type}_${rom_version}.zip ./*
+        mv ${os_type}_${rom_version}.zip ../
+        popd >/dev/null || exit
+        pack_timestamp=$(date +"%m%d%H%M")
+        hash=$(md5sum out/${os_type}_${rom_version}.zip |head -c 10)
+        if [[ $pack_type == "EROFS" ]] && [[ -f out/${os_type}_${rom_version}/$ksubootimg ]];then
+            pack_type="ROOT_"${pack_type}
+        fi
+        mv out/${os_type}_${rom_version}.zip out/${os_type}_${rom_version}_${hash}_${port_product_model}_${pack_timestamp}_${pack_type}.zip
+        green "移植完毕" "Porting completed"    
+        green "输出包路径：" "Output: "
+        green "$(pwd)/out/${os_type}_${rom_version}_${hash}_${port_product_model}_${pack_timestamp}_${pack_type}.zip"
     fi
-    lpmake $lpargs
-    if [ -f "build/portrom/images/super.img" ];then
-        green "成功打包 super.img" "Packing super.img done."
-    else
-        error "无法打包 super.img"  "Unable to pack super.img."
-        exit 1
-    fi
-    #for pname in ${super_list};do
-    #    rm -rf build/portrom/images/${pname}.img
-    #done
-
-
-    blue "正在压缩 super.img" "Compressing super.img"
-    zstd build/portrom/images/super.img -o build/portrom/super.zst
-
-    blue "正在生成刷机脚本" "Generating flashing script"
-
-    mkdir -p out/${os_type}_${rom_version}/META-INF/com/google/android/   
-    mkdir -p out/${os_type}_${rom_version}/firmware-update
-    mkdir -p out/${os_type}_${rom_version}/bin/windows/
-    cp -rf bin/flash/platform-tools-windows/* out/${os_type}_${rom_version}/bin/windows/
-    cp -rf bin/flash/windows_flash_script.bat out/${os_type}_${rom_version}/
-    cp -rf bin/flash/mac_linux_flash_script.sh out/${os_type}_${rom_version}/
-    cp -rf bin/flash/zstd out/${os_type}_${rom_version}/META-INF/
-    mv -f build/portrom/*.zst out/${os_type}_${rom_version}/
-    if [[ -f devices/${base_product_device}/update-binary ]];then
-        cp -rf devices/${base_product_device}/update-binary out/${os_type}_${rom_version}/META-INF/com/google/android/
-    else
-        cp -rf bin/flash/update-binary out/${os_type}_${rom_version}/META-INF/com/google/android/
-    fi
-    if [[ $is_ab_device = "false" ]];then
-        mv -f build/baserom/firmware-update/*.img out/${os_type}_${rom_version}/firmware-update
-        for fwimg in $(ls out/${os_type}_${rom_version}/firmware-update |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
-            if [[ $fwimg == *"xbl"* ]] || [[ $fwimg == *"dtbo"* ]] ;then
-                # Warning: If wrong xbl img has been flashed, it will cause phone hard brick, so we just skip it with fastboot mode.
-                continue
-
-            elif [[ ${fwimg} == "BTFM" ]];then
-                part="bluetooth"
-            elif [[ ${fwimg} == "cdt_engineering" ]];then
-                part="engineering_cdt"
-            elif [[ ${fwimg} == "dspso" ]];then
-                part="dsp"
-            elif [[ ${fwimg} == "keymaster64" ]];then
-                part="keymaster"
-            elif [[ ${fwimg} == "qupv3fw" ]];then
-                part="qupfw"
-            elif [[ ${fwimg} == "static_nvbk" ]];then
-                part="static_nvbk"
-            else
-                part=${fwimg}                
-            fi
-
-            sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${part}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
-            sed -i "/# firmware/a fastboot flash "${part}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-        done
-        sed -i "/_b/d" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i "s/_a//g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i '/^REM SET_ACTION_SLOT_A_BEGIN/,/^REM SET_ACTION_SLOT_A_END/d' out/${os_type}_${rom_version}/windows_flash_script.bat
-        sed -i '/# SET_ACTION_SLOT_A_BEGIN/,/# SET_ACTION_SLOT_A_END/d' out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-    else
-        mv -f build/baserom/images/*.img out/${os_type}_${rom_version}/firmware-update
-        for fwimg in $(ls out/${os_type}_${rom_version}/firmware-update |cut -d "." -f 1 |grep -vE "super|cust|preloader");do
-            if [[ $fwimg == *"xbl"* ]] || [[ $fwimg == *"dtbo"* ]] || [[ $fwimg == *"reserve"* ]] || [[ $fwimg == *"boot"* ]];then
-                rm -rfv out/${os_type}_${rom_version}/firmware-update/*reserve*
-                # Warning: If wrong xbl img has been flashed, it will cause phone hard brick, so we just skip it with fastboot mode.
-                continue
-            elif [[ $fwimg == "mdm_oem_stanvbk" ]] || [[ $fwimg == "spunvm" ]] ;then
-                sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${fwimg}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
-                sed -i "/\# firmware/a fastboot flash "${fwimg}" firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-            elif [ "$(echo ${fwimg} |grep vbmeta)" != "" ];then
-                sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe --disable-verity --disable-verification flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
-                sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe --disable-verity --disable-verification flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
-                sed -i "/\# firmware/a fastboot --disable-verity --disable-verification flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-                sed -i "/\# firmware/a fastboot --disable-verity --disable-verification flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-            else
-                sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
-                sed -i "/REM firmware/a \\\bin\\\windows\\\fastboot.exe flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/windows_flash_script.bat
-                sed -i "/\# firmware/a fastboot flash "${fwimg}"_b firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-                sed -i "/\# firmware/a fastboot flash "${fwimg}"_a firmware-update\/"${fwimg}".img" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-            fi
-        done
-    fi
-
-    sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-    sed -i "s/REGIONMARK/${regionmark}/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-    sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-    sed -i "s/REGIONMARK/${regionmark}/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-    sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/REGIONMARK/${regionmark}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/portversion/${port_rom_version}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/baseversion/${base_rom_version}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/andVersion/${port_android_version}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-    sed -i "s/device_code/${base_product_device}/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-
-    unix2dos out/${os_type}_${rom_version}/windows_flash_script.bat
-
-    #disable vbmeta
-    for img in $(find out/${os_type}_${rom_version}/ -type f -name "vbmeta*.img");do
-        blue "vbmeta验证禁用： $img" "Disable vbmeta verify: $img"
-        python3 bin/patch-vbmeta.py ${img}
-    done
-
-    ksu_bootimg_file=$(find devices/$base_product_device/ -type f -name "*boot_ksu.img")
-    nonksu_bootimg_file=$(find devices/$base_product_device/ -type f -name "*boot_noksu.img")
-    custom_bootimg_file=$(find devices/$base_product_device/ -type f -name "*boot_custom.img")
-
-    if [[ -f $nonksu_bootimg_file ]];then
-        nonksubootimg=$(basename "$nonksu_bootimg_file")
-        mv -f $nonksu_bootimg_file out/${os_type}_${rom_version}/
-        mv -f  devices/$base_product_device/dtbo_noksu.img out/${os_type}_${rom_version}/firmware-update/dtbo_noksu.img
-        sed -i "s/boot_official.img/$nonksubootimg/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i "s/boot_official.img/$nonksubootimg/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-        sed -i "s/boot_official.img/$nonksubootimg/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-        sed -i "s/dtbo.img/dtbo_noksu.img/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i "s/dtbo.img/dtbo_noksu.img/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-        sed -i "s/dtbo.img/dtbo_noksu.img/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-        sed -i '/^REM OFFICAL_BOOT_START/,/^REM OFFICAL_BOOT_END/d' out/${os_type}_${rom_version}/windows_flash_script.bat
-    else
-        bootimg=$(find build/baserom/ out/${os_type}_${rom_version} -name "boot.img")
-        mv -f $bootimg out/${os_type}_${rom_version}/boot_official.img
-    fi
-
-    if [[ -f "$ksu_bootimg_file" ]];then
-        ksubootimg=$(basename "$ksu_bootimg_file")
-        mv -f $ksu_bootimg_file out/${os_type}_${rom_version}/
-        mv -f  devices/$base_product_device/dtbo_ksu.img out/${os_type}_${rom_version}/firmware-update/dtbo_ksu.img
-        sed -i "s/boot_tv.img/$ksubootimg/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i "s/boot_tv.img/$ksubootimg/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-        sed -i "s/boot_tv.img/$ksubootimg/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-        sed -i "s/dtbo_tv.img/dtbo_ksu.img/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i "s/dtbo_tv.img/dtbo_ksu.img/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-        sed -i "s/dtbo_tv.img/dtbo_ksu.img/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-        sed -i '/^REM OFFICAL_BOOT_START/,/^REM OFFICAL_BOOT_END/d' out/${os_type}_${rom_version}/windows_flash_script.bat
-        
-    elif [[ -f "$custom_bootimg_file" ]];then
-        custombootimg=$(basename "$custom_bootimg_file")
-        mv -f $custom_bootimg_file out/${os_type}_${rom_version}/
-        mv -f  devices/$base_product_device/dtbo_custom.img out/${os_type}_${rom_version}/firmware-update/dtbo_custom.img
-        sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-        sed -i "s/boot_tv.img/$custombootimg/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-        sed -i "s/dtbo_tv.img/dtbo_custom.img/g" out/${os_type}_${rom_version}/META-INF/com/google/android/update-binary
-        sed -i "s/dtbo_tv.img/dtbo_custom.img/g" out/${os_type}_${rom_version}/windows_flash_script.bat
-        sed -i "s/dtbo_tv.img/dtbo_custom.img/g" out/${os_type}_${rom_version}/mac_linux_flash_script.sh
-        
-    fi
-
-    find out/${os_type}_${rom_version} |xargs touch
-    pushd out/${os_type}_${rom_version}/ >/dev/null || exit
-    zip -r ${os_type}_${rom_version}.zip ./*
-    mv ${os_type}_${rom_version}.zip ../
-    popd >/dev/null || exit
-    pack_timestamp=$(date +"%m%d%H%M")
-    hash=$(md5sum out/${os_type}_${rom_version}.zip |head -c 10)
-    if [[ $pack_type == "EROFS" ]] && [[ -f out/${os_type}_${rom_version}/$ksubootimg ]];then
-        pack_type="ROOT_"${pack_type}
-    fi
-    mv out/${os_type}_${rom_version}.zip out/${os_type}_${rom_version}_${hash}_${port_product_model}_${pack_timestamp}_${pack_type}.zip
-    green "移植完毕" "Porting completed"    
-    green "输出包路径：" "Output: "
-    green "$(pwd)/out/${os_type}_${rom_version}_${hash}_${port_product_model}_${pack_timestamp}_${pack_type}.zip"
 fi
