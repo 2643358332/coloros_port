@@ -1727,6 +1727,8 @@ else
         cp -rf build/baserom/images/my_product/product_overlay/framework/* build/portrom/images/my_product/product_overlay/framework/
     fi
  fi
+ #添加6.031.93版本相机，补充相关文件
+ unzip -o devices/common/camera6.0_fix.zip -d build/portrom/images/
 
 if [[ ${base_device_family} == "OPSM8250" ]]; then
   camera_optimize_file=$(find build/portrom/images/ -type f -name "sys_camera_optimize_config.xml")
