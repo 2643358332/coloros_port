@@ -1410,7 +1410,7 @@ cp -rf  build/baserom/images/my_product/etc/sys_resolution_switch_config.xml bui
 # 为AI大神辅助补充特性和文件
 unzip -o devices/common/AIPlaymate.zip -d build/portrom/images/
 
-cp -rf build/baserom/images/my_product/etc/permissions/com.oplus.sensor_config.xml build/portrom/images/my_product/etc/permissions/
+#cp -rf build/baserom/images/my_product/etc/permissions/com.oplus.sensor_config.xml build/portrom/images/my_product/etc/permissions/
 # add_feature "com.android.systemui.support_media_show" build/portrom/images/my_product/etc/extension/com.oplus.app-features.xml
 
 # Features Extension
@@ -1452,14 +1452,14 @@ oplus_features=(
     "oplus.software.audio.super_volume_4x^400%超级音量"
     "oplus.software.radio.networkless_sms_support"
     "com.oplus.location.car_phone_connection"
-   "oplus.software.display.enhance_brightness_with_uidimming^LocalHDR"
+    "oplus.software.display.enhance_brightness_with_uidimming^LocalHDR"
     "oplus.software.adaptive_smooth_animation^山海通信网络引擎"
     "oplus.software.radio.ai_link_boost"
     "oplus.software.radio.ai_link_boost_notification"
     "oplus.software.radio.ai_link_boost_railway_notification"
-    "oplus.software.systemui.pin_task^钉到流体云"
+    #"oplus.software.systemui.pin_task^钉到流体云"
     "oplus.software.radio.hfp_comm_shared_support^iPhone互联"
-    "oplus.hardware.display.motion_sickness^晕动舒缓提示"
+    #"oplus.hardware.display.motion_sickness^晕动舒缓提示"
 )
 
 for oplus_feature in ${oplus_features[@]}; do 
@@ -1543,7 +1543,8 @@ app_features=(
     "com.oplus.wallpapers.livephoto_wallpaper_support_4k^^args=\"boolean:true\""
     "com.oplus.gallery3d.aihd_support"
     "os.graphic.gallery.collage.asset_bounds_break^出圈^args=\"boolean:true\""
-    "os.graphic.gallery.collage.livephoto^^args=\"boolean:true\""
+    #3d壁纸
+    "com.oplus.wallpapers.3d_wallpaper^^args=\"boolean:true\""
 )
 for app_feature in ${app_features[@]}; do 
     add_feature_v2 app_feature $app_feature
@@ -1643,12 +1644,12 @@ add_feature "oplus.hardware.audio.voice_isolation_support" build/portrom/images/
 add_feature "oplus.hardware.audio.voice_denoise_support" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
 
 #旁路供电
-sed -i '/<\/extend_features>/i\
-    <app_feature name="com.oplus.plc_charge.support">\
-        <StringList args="true"/>\
-    </app_feature>' build/portrom/images/my_product/etc/extension/com.oplus.app-features-ext-bruce.xml
-add_feature_v2 app_feature "com.android.settings.device_rm^Realme设备"
-add_feature_v2  app_feature "com.oplus.fullscene_plc_charge.support^全场景旁路充电^args=\"boolean:true\""
+#sed -i '/<\/extend_features>/i\
+#    <app_feature name="com.oplus.plc_charge.support">\
+#        <StringList args="true"/>\
+#    </app_feature>' build/portrom/images/my_product/etc/extension/com.oplus.app-features-ext-bruce.xml
+#add_feature_v2 app_feature "com.android.settings.device_rm^Realme设备"
+#add_feature_v2 app_feature "com.oplus.fullscene_plc_charge.support^全场景旁路充电^args=\"boolean:true\""
 #三段式
 if grep -q "oplus.software.audio.alert_slider"  build/portrom/images/my_product/etc/permissions/* ;then
     add_feature "oplus.software.audio.alert_slider" build/portrom/images/my_product/etc/permissions/oplus.product.feature_multimedia_unique.xml
